@@ -1,4 +1,4 @@
-name: "01 - Architecture: Split master spec into phases"
+name: "01 - Architecture: Extract master spec"
 
 on:
   workflow_dispatch:
@@ -7,13 +7,9 @@ on:
         description: "Path to the PDF master spec file"
         required: true
         default: "docs/master-specs/project-master-spec.pdf"
-      max_phases:
-        description: "Maximum number of phases to generate"
-        required: false
-        default: "12"
 
 jobs:
-  plan-phases:
+  extract-spec:
     runs-on: ubuntu-latest
 
     permissions:
@@ -22,14 +18,6 @@ jobs:
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v4
-
-      - name: "Setup Node.js (for Copilot CLI)"
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: "Install GitHub Copilot CLI"
-        run: npm install -g @github/copilot
 
       - name: "Setup Python"
         uses: actions/setup-python@v5
@@ -45,41 +33,6 @@ jobs:
         env:
           MASTER_SPEC_PATH: ${{ github.event.inputs.master_spec_path }}
         run: |
-          python scripts/phase_planner/extract_pdf_text.py "$MASTER_SPEC_PATH" "docs/phase-specs/master-spec.txt"
-
-      - name: "Invoke architecture planner agent via Copilot CLI"
-        env:
-          COPILOT_TOKEN: ${{ secrets.COPILOT_TOKEN }}
-          MAX_PHASES: ${{ github.event.inputs.max_phases }}
-        run: |
-          if [ -z "$COPILOT_TOKEN" ]; then
-            echo "ERROR: COPILOT_TOKEN secret is not set. Please create a secret named COPILOT_TOKEN with your Copilot CLI token."
-            exit 1
-          fi
-
-          PROMPT=$(cat << 'EOF'
-          Bạn là agent `architecture-planner` trong repo này.
-
-          Nhiệm vụ:
-          1. Đọc file master spec: docs/phase-specs/master-spec.txt
-          2. Dựa theo schema trong docs/phase-specs/phase-output-schema.md
-             và template docs/phase-specs/phases/PHASE_TEMPLATE.phase.yml.
-          3. Bóc tách dự án thành nhiều phase, mỗi phase đủ rõ để coding agent
-             có thể thực thi end-to-end.
-          4. Tạo các file sau:
-             - docs/phase-specs/PLAN_OVERVIEW.md
-             - docs/phase-specs/VALIDATION_REPORT.md
-             - Một file .phase.yml cho mỗi phase trong docs/phase-specs/phases/
-          5. Tự kiểm tra lại (self-validation) toàn bộ phase:
-             - Đảm bảo đủ field bắt buộc
-             - Dependencies hợp lệ, không bị vòng lặp
-             - Nội dung đủ rõ để coding agent dùng trực tiếp
-
-          Lưu ý:
-          - Tối đa số phase là giá trị biến môi trường MAX_PHASES.
-          - Nếu cần, bạn có thể điều chỉnh lại danh sách phase cho hợp lý trước khi ghi file.
-          EOF
-          )
-
-          echo "Running Copilot CLI with architecture-planner agent..."
-          copilot --agent=architecture-planner --prompt "$PROMPT"
+          python scripts/phase_planner/extract_pdf_text.py \
+            "$MASTER_SPEC_PATH" \
+            "docs/phase-specs/master-spec.txt"
