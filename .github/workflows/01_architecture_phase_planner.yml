@@ -1,16 +1,16 @@
-name: 01 - Architecture: Split master spec into phases
+name: "01 - Architecture: Split master spec into phases"
 
 on:
   workflow_dispatch:
     inputs:
       master_spec_path:
-        description: 'Path to the PDF master spec file'
+        description: "Path to the PDF master spec file"
         required: true
-        default: 'docs/master-specs/project-master-spec.pdf'
+        default: "docs/master-specs/project-master-spec.pdf"
       max_phases:
-        description: 'Maximum number of phases to generate'
+        description: "Maximum number of phases to generate"
         required: false
-        default: '12'
+        default: "12"
 
 jobs:
   plan-phases:
@@ -20,26 +20,26 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: "Checkout repository"
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: "Setup Python"
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
-      - name: Install Python dependencies
+      - name: "Install Python dependencies"
         run: |
           python -m pip install --upgrade pip
           pip install pypdf
 
-      - name: Extract PDF to text
+      - name: "Extract PDF to text"
         env:
           MASTER_SPEC_PATH: ${{ github.event.inputs.master_spec_path }}
         run: |
-          python scripts/phase_planner/extract_pdf_text.py                 "$MASTER_SPEC_PATH"                 "docs/phase-specs/master-spec.txt"
+          python scripts/phase_planner/extract_pdf_text.py "$MASTER_SPEC_PATH" "docs/phase-specs/master-spec.txt"
 
-      - name: Run architecture planner agent (placeholder)
+      - name: "Run architecture planner agent (placeholder)"
         run: |
           echo "==================================================================="
           echo " Placeholder step: invoke your GitHub Agent here to process"
