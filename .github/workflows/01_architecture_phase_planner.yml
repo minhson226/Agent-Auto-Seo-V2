@@ -1,4 +1,4 @@
-name: "01 - Architecture: Extract master spec"
+name: "01 - Architecture: Extract master spec (branch + PR)"
 
 on:
   workflow_dispatch:
@@ -14,10 +14,29 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # để tạo branch & push được thoải mái
+
+      - name: "Prepare branch names"
+        run: |
+          BASE_BRANCH="${{ github.ref_name }}"
+          BRANCH_NAME="phase-plan-${{ github.run_id }}"
+
+          echo "BASE_BRANCH=$BASE_BRANCH" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+          echo "Base branch: $BASE_BRANCH"
+          echo "New branch : $BRANCH_NAME"
+
+      - name: "Create phase-planning branch"
+        run: |
+          git checkout "${BASE_BRANCH}"
+          git switch -c "${BRANCH_NAME}"
 
       - name: "Setup Python"
         uses: actions/setup-python@v5
@@ -36,3 +55,53 @@ jobs:
           python scripts/phase_planner/extract_pdf_text.py \
             "$MASTER_SPEC_PATH" \
             "docs/phase-specs/master-spec.txt"
+
+      - name: "Show extracted file info"
+        run: |
+          echo "===== Listing docs/phase-specs directory ====="
+          ls -lah docs/phase-specs
+
+          echo ""
+          echo "===== First 60 lines of master-spec.txt ====="
+          sed -n '1,60p' docs/phase-specs/master-spec.txt || echo "master-spec.txt not found"
+
+      - name: "Commit extracted spec to branch"
+        env:
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        run: |
+          echo "===== Git status before commit ====="
+          git status
+
+          if git diff --quiet; then
+            echo "No changes detected after extraction. Nothing to commit."
+            echo "SKIP_PUSH_AND_PR=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/phase-specs/master-spec.txt
+          git commit -m "chore: extract master spec to text for phase planning"
+
+      - name: "Push branch"
+        if: env.SKIP_PUSH_AND_PR != 'true'
+        env:
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        run: |
+          git push origin "${BRANCH_NAME}"
+
+      - name: "Create pull request for phase planning"
+        if: env.SKIP_PUSH_AND_PR != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+          BASE_BRANCH: ${{ env.BASE_BRANCH }}
+        run: |
+          echo "Creating PR from ${BRANCH_NAME} -> ${BASE_BRANCH}"
+
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$BRANCH_NAME" \
+            --title "Phase planning: extract master spec from PDF" \
+            --body "This PR adds docs/phase-specs/master-spec.txt extracted from the master PDF. Use the \`architecture-planner\` GitHub Agent on this PR to split the project into phases and generate phase specs."
