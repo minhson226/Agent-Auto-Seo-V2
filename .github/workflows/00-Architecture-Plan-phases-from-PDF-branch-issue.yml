@@ -94,7 +94,7 @@ jobs:
         run: |
           git push origin "${BRANCH_NAME}"
 
-      - name: "Create issue for architecture-planner agent"
+            - name: "Create issue for architecture-planner agent"
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH_NAME: ${{ env.BRANCH_NAME }}
@@ -105,30 +105,30 @@ jobs:
 
           TITLE="Phase planning from PDF (run ${{ github.run_id }})"
 
-          BODY=$(cat << 'EOF'
+          read -r -d '' BODY << 'EOF'
           @copilot @architecture-planner
 
           Please run the full **phase-planning** workflow for this project.
 
           Context
 
-          - Base branch: `${BASE_BRANCH}`
-          - Working branch for this task: `${BRANCH_NAME}`
-          - Master spec text: `docs/phase-specs/master-spec.txt`
-          - Phase schema: `docs/phase-specs/phase-output-schema.md`
-          - Phase template: `docs/phase-specs/phases/PHASE_TEMPLATE.phase.yml`
-          - Max phases (soft limit): `${MAX_PHASES}`
+          - Base branch: ${BASE_BRANCH}
+          - Working branch for this task: ${BRANCH_NAME}
+          - Master spec text: docs/phase-specs/master-spec.txt
+          - Phase schema: docs/phase-specs/phase-output-schema.md
+          - Phase template: docs/phase-specs/phases/PHASE_TEMPLATE.phase.yml
+          - Max phases (soft limit): ${MAX_PHASES}
 
           Task
 
-          1. Read and understand `docs/phase-specs/master-spec.txt`.
+          1. Read and understand docs/phase-specs/master-spec.txt.
           2. Design a set of implementation phases for the whole project.
-          3. For each phase, create a `.phase.yml` file under:
-             - `docs/phase-specs/phases/phase-XXX-<slug>.phase.yml`
+          3. For each phase, create a .phase.yml file under:
+             - docs/phase-specs/phases/phase-XXX-<slug>.phase.yml
              following the schema and template.
           4. Generate:
-             - `docs/phase-specs/PLAN_OVERVIEW.md` — list of all phases, high-level overview.
-             - `docs/phase-specs/VALIDATION_REPORT.md` — results of self-validation.
+             - docs/phase-specs/PLAN_OVERVIEW.md — list of all phases, high-level overview.
+             - docs/phase-specs/VALIDATION_REPORT.md — results of self-validation.
           5. Run self-validation:
              - Ensure each phase has all required fields.
              - Ensure dependencies are valid and non-cyclical.
@@ -136,14 +136,12 @@ jobs:
 
           Important
 
-          - Work on top of branch `${BRANCH_NAME}`.
-          - Create a pull request targeting `${BASE_BRANCH}` with your changes.
-          - If you need to adjust the number or shape of phases for clarity, do so and document it in `VALIDATION_REPORT.md`.
-
+          - Work on top of branch ${BRANCH_NAME}.
+          - Create a pull request targeting ${BASE_BRANCH} with your changes.
+          - If you need to adjust the number or shape of phases for clarity, do so and document it in VALIDATION_REPORT.md.
           EOF
-          )
 
           gh issue create \
             --title "$TITLE" \
-            --body "$BODY" \
-            --assignee "copilot"
+            --body "$BODY"
+
