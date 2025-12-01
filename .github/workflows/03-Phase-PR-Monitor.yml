@@ -1,0 +1,120 @@
+name: "03 - Phase: PR monitor & test"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths:
+      - "docs/phase-specs/**"
+      - "docs/phase-runs/**"
+      - "src/**"
+      - ".github/workflows/**"
+
+jobs:
+  test-and-log:
+    runs-on: ubuntu-latest
+
+    if: startsWith(github.head_ref, 'copilot/impl-')
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Setup Python (customize for your stack)"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "Install dependencies"
+        run: |
+          # TODO: đổi thành lệnh cài package / build của dự án bạn
+          echo "Install deps here (pip/npm/composer...)"
+
+      - name: "Run tests"
+        id: tests
+        continue-on-error: true
+        run: |
+          # TODO: thay bằng lệnh test thật (pytest, npm test, ...)
+          echo "Running tests..."
+          pytest || exit_code=$?
+          exit ${exit_code:-0}
+
+      - name: "Determine phase ID and log file"
+        id: phase_info
+        run: |
+          # head_ref: copilot/impl-PHASE-001-login-api-run-xxx
+          BRANCH="${{ github.head_ref }}"
+
+          PHASE_ID=$(echo "$BRANCH" | sed -E 's#copilot/impl-([^ -]+).*#\1#')
+          echo "Detected phase ID: $PHASE_ID"
+
+          # lấy log mới nhất của phase
+          LOG_FILE=$(ls -1 docs/phase-runs/${PHASE_ID}/run-*.md | sort | tail -n1 || true)
+
+          echo "LOG_FILE=$LOG_FILE" >> $GITHUB_OUTPUT
+
+      - name: "Update run log with result"
+        if: steps.phase_info.outputs.LOG_FILE != ''
+        run: |
+          LOG_FILE="${{ steps.phase_info.outputs.LOG_FILE }}"
+          echo "Updating log file: $LOG_FILE"
+
+          STATUS_LINE=$(grep "^- Status:" "$LOG_FILE" || true)
+          ATTEMPTS_LINE=$(grep "^- Attempts:" "$LOG_FILE" || true)
+
+          STATUS="UNKNOWN"
+          ATTEMPTS=0
+
+          if [ -n "$STATUS_LINE" ]; then
+            STATUS=$(echo "$STATUS_LINE" | sed 's/^- Status: //')
+          fi
+          if [ -n "$ATTEMPTS_LINE" ]; then
+            ATTEMPTS=$(echo "$ATTEMPTS_LINE" | sed 's/^- Attempts: //')
+          fi
+
+          ATTEMPTS=$((ATTEMPTS + 1))
+
+          if [ "${{ steps.tests.outcome }}" = "success" ]; then
+            NEW_STATUS="PASSED"
+          else
+            NEW_STATUS="FAILED"
+          fi
+
+          # Cập nhật 2 dòng Status & Attempts
+          sed -i "s/^\\- Status: .*/- Status: ${NEW_STATUS}/" "$LOG_FILE"
+          sed -i "s/^\\- Attempts: .*/- Attempts: ${ATTEMPTS}/" "$LOG_FILE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$LOG_FILE"
+          git commit -m "chore: update phase run log (${NEW_STATUS}, attempt ${ATTEMPTS})" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
+      - name: "Comment on PR when tests fail"
+        if: steps.tests.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          BRANCH="${{ github.head_ref }}"
+          PHASE_ID=$(echo "$BRANCH" | sed -E 's#copilot/impl-([^ -]+).*#\1#')
+
+          COMMENT=$(cat <<EOF
+          @copilot
+
+          Tests failed for **${PHASE_ID}** on branch \`${BRANCH}\`.
+
+          Please review the CI logs, fix the issues, and push new commits on this branch.
+
+          (You may need a human to click "Assign to Copilot" again if required by the UI.)
+          EOF
+          )
+
+                    gh pr comment "$PR_URL" --body "$COMMENT"

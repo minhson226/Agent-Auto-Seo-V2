@@ -1,0 +1,121 @@
+name: "04 - Phase: Auto-merge successful phase PRs"
+
+on:
+  workflow_run:
+    workflows:
+      - "03 - Phase: PR monitor & test"
+    types:
+      - completed
+
+jobs:
+  auto-merge-phase-pr:
+    runs-on: ubuntu-latest
+
+    # Chỉ chạy khi workflow 03 kết thúc thành công và được trigger bởi pull_request
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Extract PR and branch info"
+        id: info
+        run: |
+          echo "Workflow run id: ${{ github.event.workflow_run.id }}"
+          echo "Workflow name : ${{ github.event.workflow_run.name }}"
+          echo "Conclusion    : ${{ github.event.workflow_run.conclusion }}"
+
+          PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
+          BRANCH="${{ github.event.workflow_run.pull_requests[0].head.ref }}"
+          BASE="${{ github.event.workflow_run.pull_requests[0].base.ref }}"
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR associated with this workflow run. Skipping."
+            exit 0
+          fi
+
+          echo "PR number: $PR_NUMBER"
+          echo "Head ref : $BRANCH"
+          echo "Base ref : $BASE"
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "base=$BASE" >> $GITHUB_OUTPUT
+
+      - name: "Update phase run log with auto-merge info"
+        run: |
+          BRANCH="${{ steps.info.outputs.branch }}"
+          PR_NUMBER="${{ steps.info.outputs.pr_number }}"
+          BASE="${{ steps.info.outputs.base }}"
+
+          # Chỉ xử lý branch impl-phase
+          case "$BRANCH" in
+            copilot/impl-*)
+              ;;
+            *)
+              echo "Branch $BRANCH is not a phase implementation branch. Skipping."
+              exit 0
+              ;;
+          esac
+
+          PHASE_ID=$(echo "$BRANCH" | sed -E 's#copilot/impl-([^ -]+).*#\1#')
+          echo "Detected phase ID: $PHASE_ID"
+
+          LOG_FILE=$(ls -1 docs/phase-runs/${PHASE_ID}/run-*.md 2>/dev/null | sort | tail -n1 || true)
+
+          if [ -z "$LOG_FILE" ]; then
+            echo "No log file found for phase ${PHASE_ID}. Skipping log update."
+          else
+            echo "Updating log file: $LOG_FILE"
+            {
+              echo ""
+              echo "## Auto-merge"
+              echo "- PR: #$PR_NUMBER"
+              echo "- Branch: $BRANCH"
+              echo "- Base: $BASE"
+              echo "- Merged at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            } >> "$LOG_FILE"
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$LOG_FILE"
+            git commit -m "chore: log auto-merge for ${PHASE_ID}" || echo "No changes to commit"
+            git push || echo "No changes to push"
+          fi
+
+      - name: "Merge PR"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ steps.info.outputs.pr_number }}"
+          BRANCH="${{ steps.info.outputs.branch }}"
+          BASE="${{ steps.info.outputs.base }}"
+
+          echo "Attempting to merge PR #$PR_NUMBER (branch: $BRANCH -> base: $BASE)"
+
+          # Chỉ merge vào main
+          if [ "$BASE" != "main" ]; then
+            echo "Base branch is $BASE (not main). Skipping auto-merge."
+            exit 0
+          fi
+
+          # Chỉ merge các branch impl-phase
+          case "$BRANCH" in
+            copilot/impl-*)
+              ;;
+            *)
+              echo "Branch $BRANCH is not a phase implementation branch. Skipping merge."
+              exit 0
+              ;;
+          esac
+
+          # Thực hiện merge kiểu merge commit (có thể đổi sang --squash nếu muốn)
+          gh pr merge "$PR_NUMBER" --merge --delete-branch

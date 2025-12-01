@@ -1,0 +1,151 @@
+name: "02 - Phase: Start implementation (per phase)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase_id:
+        description: "Phase ID to implement (e.g. PHASE-001)"
+        required: true
+      base_branch:
+        description: "Base branch to start from"
+        required: false
+        default: "main"
+
+jobs:
+  start-phase:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.base_branch }}
+
+      - name: "Find phase file by ID"
+        id: find_phase
+        run: |
+          PHASE_ID="${{ github.event.inputs.phase_id }}"
+
+          FILE=$(ls docs/phase-specs/phases | grep -i "${PHASE_ID,,}" || true)
+
+          if [ -z "$FILE" ]; then
+            echo "ERROR: Could not find phase file for ID: $PHASE_ID"
+            exit 1
+          fi
+
+          PHASE_FILE="docs/phase-specs/phases/$FILE"
+          echo "Found phase file: $PHASE_FILE"
+
+          echo "phase_file=$PHASE_FILE" >> $GITHUB_OUTPUT
+
+      - name: "Read phase metadata (title & slug)"
+        id: phase_meta
+        run: |
+          PHASE_FILE="${{ steps.find_phase.outputs.phase_file }}"
+
+          TITLE=$(grep -E "^\\s*title:" "$PHASE_FILE" | head -n1 | sed 's/^[^:]*://; s/^ *//')
+          SLUG=$(grep -E "^\\s*slug:" "$PHASE_FILE" | head -n1 | sed 's/^[^:]*://; s/^ *//')
+
+          echo "Phase title: $TITLE"
+          echo "Phase slug : $SLUG"
+
+          echo "phase_title=$TITLE" >> $GITHUB_OUTPUT
+          echo "phase_slug=$SLUG" >> $GITHUB_OUTPUT
+
+      - name: "Create implementation branch"
+        id: branch
+        run: |
+          BASE_BRANCH="${{ github.event.inputs.base_branch }}"
+          PHASE_ID="${{ github.event.inputs.phase_id }}"
+          SLUG="${{ steps.phase_meta.outputs.phase_slug }}"
+
+          BRANCH_NAME="copilot/impl-${PHASE_ID}-${SLUG}-run-${{ github.run_id }}"
+
+          git checkout "$BASE_BRANCH"
+          git switch -c "$BRANCH_NAME"
+
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: "Create phase run log file"
+        id: run_log
+        run: |
+          PHASE_ID="${{ github.event.inputs.phase_id }}"
+          TS=$(date +"%Y%m%d-%H%M%S")
+
+          LOG_DIR="docs/phase-runs/$PHASE_ID"
+          LOG_FILE="$LOG_DIR/run-$TS.md"
+
+          mkdir -p "$LOG_DIR"
+
+          cat > "$LOG_FILE" <<EOF
+          # Phase Run Log – $PHASE_ID
+
+          - Phase file: ${{ steps.find_phase.outputs.phase_file }}
+          - Title: ${{ steps.phase_meta.outputs.phase_title }}
+          - Slug: ${{ steps.phase_meta.outputs.phase_slug }}
+          - Branch: ${{ steps.branch.outputs.branch_name }}
+          - Started at: $TS
+          - Status: INIT
+          - Attempts: 0
+          - Notes:
+            - Run created by workflow 02-Phase-Start-Implementation.
+          EOF
+
+          echo "log_file=$LOG_FILE" >> $GITHUB_OUTPUT
+          echo "LOG_FILE=$LOG_FILE" >> $GITHUB_ENV
+
+      - name: "Commit run log & push branch"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "$LOG_FILE"
+          git commit -m "chore: start implementation for ${{ github.event.inputs.phase_id }}"
+          git push origin "$BRANCH_NAME"
+
+      - name: "Create issue for Copilot phase implementation"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PHASE_ID="${{ github.event.inputs.phase_id }}"
+          PHASE_FILE="${{ steps.find_phase.outputs.phase_file }}"
+          PHASE_TITLE="${{ steps.phase_meta.outputs.phase_title }}"
+          BRANCH_NAME="${{ steps.branch.outputs.branch_name }}"
+          LOG_FILE="${LOG_FILE}"
+
+          TITLE="Implement ${PHASE_ID} – ${PHASE_TITLE}"
+
+          BODY=$(cat <<EOF
+          @copilot
+
+          Please implement **${PHASE_ID} – ${PHASE_TITLE}** according to the phase spec.
+
+          Context
+
+          - Phase file: \`${PHASE_FILE}\`
+          - Implementation branch: \`${BRANCH_NAME}\`
+          - Run log: \`${LOG_FILE}\`
+          - Base branch: \`${{ github.event.inputs.base_branch }}\`
+
+          Tasks
+
+          1. Read the phase spec in \`${PHASE_FILE}\` (including scope, outputs, implementation_prompt).
+          2. Implement the phase on branch \`${BRANCH_NAME}\` following \`implementation_prompt\`.
+          3. Add/adjust tests so that acceptance_criteria are verified.
+          4. Open a Pull Request from \`${BRANCH_NAME}\` to \`${{ github.event.inputs.base_branch }}\`.
+
+          After this issue is assigned to you, please:
+          - Work only on branch \`${BRANCH_NAME}\`.
+          - Update tests and code until the CI workflow passes.
+          EOF
+          )
+
+          gh issue create \
+            --title "$TITLE" \
+            --body "$BODY"
