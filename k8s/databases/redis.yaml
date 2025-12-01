@@ -48,8 +48,9 @@ spec:
           livenessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -57,8 +58,9 @@ spec:
           readinessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3

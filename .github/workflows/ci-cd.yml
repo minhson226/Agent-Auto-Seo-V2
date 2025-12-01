@@ -24,12 +24,14 @@ jobs:
   lint-and-validate:
     name: Lint and Validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate docker-compose
-        run: docker-compose config -q
+        run: docker compose config -q
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -99,26 +101,28 @@ jobs:
     name: Test Infrastructure
     runs-on: ubuntu-latest
     needs: lint-and-validate
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Start infrastructure
         run: |
-          docker-compose up -d postgres redis
+          docker compose up -d postgres redis
           sleep 30
 
       - name: Test PostgreSQL connection
         run: |
-          docker-compose exec -T postgres pg_isready -U autoseo
+          docker compose exec -T postgres pg_isready -U autoseo
 
       - name: Test Redis connection
         run: |
-          docker-compose exec -T redis redis-cli -a redis_secret ping
+          docker compose exec -T redis redis-cli -a redis_secret ping
 
       - name: Cleanup
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   deploy-staging:
     name: Deploy to Staging
@@ -126,6 +130,8 @@ jobs:
     needs: [build-images, test-infrastructure]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: staging
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -147,6 +153,8 @@ jobs:
     needs: deploy-staging
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
