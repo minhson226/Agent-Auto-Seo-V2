@@ -31,6 +31,14 @@ def get_json_type():
     return JSONB
 
 
+def get_foreign_key_reference():
+    """Get foreign key reference with schema qualification."""
+    db_url = os.environ.get("DATABASE_URL", "")
+    if "sqlite" in db_url:
+        return "keyword_lists.id"
+    return "autoseo.keyword_lists.id"
+
+
 class Keyword(Base):
     """Model for individual keywords."""
 
@@ -41,7 +49,7 @@ class Keyword(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     list_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("keyword_lists.id", ondelete="CASCADE"),
+        UUID(as_uuid=True), ForeignKey(get_foreign_key_reference(), ondelete="CASCADE"),
         nullable=False, index=True
     )
     text: Mapped[str] = mapped_column(String(500), nullable=False)

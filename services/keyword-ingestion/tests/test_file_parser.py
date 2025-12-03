@@ -44,11 +44,11 @@ class TestFileParser:
 
     @pytest.mark.asyncio
     async def test_parse_csv_with_empty_values(self, parser):
-        """Test parsing CSV with empty values."""
+        """Test parsing CSV with empty values - empty lines are filtered out."""
         content = b"keyword\napple\n\nbanana\n  \ncherry\n"
         keywords = await parser.parse_csv(content)
 
-        # pandas reads empty lines as NaN, which get filtered out
+        # Only non-empty values are returned (pandas reads empty lines as NaN)
         assert len(keywords) == 3
         assert "apple" in keywords
         assert "banana" in keywords
