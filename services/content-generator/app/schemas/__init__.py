@@ -10,6 +10,11 @@ from app.schemas.article import (
     GenerationResult,
     PaginatedArticleResponse,
 )
+from app.schemas.publishing import (
+    ArticleExportResponse,
+    PublishedPostCreate,
+    PublishedPostResponse,
+)
 
 __all__ = [
     "ArticleCreate",
@@ -20,4 +25,7 @@ __all__ = [
     "ArticleUpdate",
     "GenerationResult",
     "PaginatedArticleResponse",
+    "ArticleExportResponse",
+    "PublishedPostCreate",
+    "PublishedPostResponse",
 ]
