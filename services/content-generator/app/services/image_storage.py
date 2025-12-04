@@ -22,6 +22,10 @@ class ImageStorageService:
 
     Supports mock mode for testing when S3/MinIO is not available.
     In mock mode, images are stored in memory for inspection during tests.
+
+    Mock mode is enabled when:
+    - mock_mode=True is passed to constructor, OR
+    - S3_ENDPOINT starts with 'mock://'
     """
 
     def __init__(self, mock_mode: bool = False):
@@ -29,6 +33,7 @@ class ImageStorageService:
 
         Args:
             mock_mode: If True, operates in mock mode without real S3 connection.
+                      Also enabled automatically when S3_ENDPOINT starts with 'mock://'.
         """
         self.endpoint_url = settings.S3_ENDPOINT
         self.access_key = settings.S3_ACCESS_KEY
@@ -36,6 +41,7 @@ class ImageStorageService:
         self.bucket = settings.S3_BUCKET_IMAGES
         self.region = settings.S3_REGION
         self._session: Optional[aioboto3.Session] = None
+        # Mock mode is enabled by parameter OR by URL prefix
         self._mock_mode = mock_mode or self.endpoint_url.startswith("mock://")
         self._mock_storage: Dict[str, bytes] = {}  # Store images in mock mode
 

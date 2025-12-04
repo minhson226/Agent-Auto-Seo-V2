@@ -26,6 +26,10 @@ class EventPublisher:
 
     Supports mock mode for testing when RabbitMQ is not available.
     In mock mode, events are stored in memory for inspection during tests.
+
+    Mock mode is enabled when:
+    - mock_mode=True is passed to constructor, OR
+    - RABBITMQ_URL starts with 'mock://'
     """
 
     EXCHANGE_NAME = "auto_seo.events"
@@ -35,10 +39,12 @@ class EventPublisher:
 
         Args:
             mock_mode: If True, operates in mock mode without real RabbitMQ connection.
+                      Also enabled automatically when RABBITMQ_URL starts with 'mock://'.
         """
         self.connection: Optional[aio_pika.Connection] = None
         self.channel: Optional[aio_pika.Channel] = None
         self.exchange: Optional[aio_pika.Exchange] = None
+        # Mock mode is enabled by parameter OR by URL prefix
         self._mock_mode = mock_mode or settings.RABBITMQ_URL.startswith("mock://")
         self._published_events: List[Dict[str, Any]] = []  # Store events in mock mode
 

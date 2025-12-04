@@ -27,7 +27,12 @@ class ContentGenerator:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        """Initialize the content generator."""
+        """Initialize the content generator.
+
+        Args:
+            api_key: OpenAI API key. If not provided, uses settings.OPENAI_API_KEY.
+                     If empty string, mock mode is enabled.
+        """
         self.api_key = api_key if api_key is not None else settings.OPENAI_API_KEY
         # Only create client if we have a non-empty API key
         self.client = AsyncOpenAI(api_key=self.api_key) if self.api_key else None
