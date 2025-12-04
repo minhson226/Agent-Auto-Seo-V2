@@ -60,7 +60,7 @@ class ContentPlan(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     priority: Mapped[str] = mapped_column(String(20), default="medium")  # 'high' | 'medium' | 'low'
     # Store target_keywords as JSON for SQLite compatibility
-    target_keywords_json: Mapped[Optional[dict]] = mapped_column(
+    target_keywords_json: Mapped[Optional[list]] = mapped_column(
         "target_keywords", get_json_type(), default=list, server_default="[]"
     )
     competitors_data: Mapped[dict] = mapped_column(
