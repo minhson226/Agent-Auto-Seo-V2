@@ -93,20 +93,32 @@ class GoogleProvider(LLMProvider):
                 max_output_tokens=max_tokens,
             )
 
-            response = await gen_model.generate_content_async(
-                full_prompt,
-                generation_config=generation_config,
+            # Use synchronous generate_content and wrap in async
+            import asyncio
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: gen_model.generate_content(
+                    full_prompt,
+                    generation_config=generation_config,
+                ),
             )
 
             content = response.text if response.text else ""
 
             # Google doesn't always provide token counts, estimate if needed
-            input_tokens = getattr(
-                response.usage_metadata, "prompt_token_count", len(full_prompt.split()) * 2
-            )
-            output_tokens = getattr(
-                response.usage_metadata, "candidates_token_count", len(content.split()) * 2
-            )
+            usage_metadata = getattr(response, "usage_metadata", None)
+            if usage_metadata:
+                input_tokens = getattr(usage_metadata, "prompt_token_count", None)
+                output_tokens = getattr(usage_metadata, "candidates_token_count", None)
+                if input_tokens is None:
+                    input_tokens = len(full_prompt.split()) * 2
+                if output_tokens is None:
+                    output_tokens = len(content.split()) * 2
+            else:
+                input_tokens = len(full_prompt.split()) * 2
+                output_tokens = len(content.split()) * 2
+
             cost = self.calculate_cost(input_tokens, output_tokens, model_to_use)
 
             return LLMResponse(

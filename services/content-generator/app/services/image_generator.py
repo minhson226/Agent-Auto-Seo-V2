@@ -6,6 +6,8 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus
 
+import httpx
+
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -124,8 +126,6 @@ class ImageService:
         Returns:
             List of Pexels image results
         """
-        import httpx
-
         url = "https://api.pexels.com/v1/search"
         headers = {"Authorization": self.pexels_api_key}
         params = {
@@ -174,8 +174,6 @@ class ImageService:
         Returns:
             List of Unsplash image results
         """
-        import httpx
-
         url = "https://api.unsplash.com/search/photos"
         headers = {"Authorization": f"Client-ID {self.unsplash_access_key}"}
         params = {
