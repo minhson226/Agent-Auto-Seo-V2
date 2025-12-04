@@ -187,6 +187,57 @@ async def _smart_schedule_optimizer_async(workspace_id: UUID) -> Dict[str, Any]:
     }
 
 
+async def _get_active_workspaces() -> List[Dict[str, Any]]:
+    """Get all active workspaces for internal link processing.
+
+    Returns:
+        List of workspace dictionaries with id
+    """
+    # In a real implementation, this would query the database
+    logger.info("Getting active workspaces for internal linking...")
+    # Placeholder - would query database
+    return []
+
+
+async def _update_internal_links_async() -> Dict[str, Any]:
+    """Async implementation of nightly internal link update.
+
+    Returns:
+        Summary of update results
+    """
+    from app.internal_linker import SemanticInternalLinker
+
+    logger.info("Starting nightly internal links update...")
+
+    workspaces = await _get_active_workspaces()
+
+    results = {
+        "workspaces_processed": 0,
+        "total_opportunities": 0,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Initialize linker in mock mode if no real DB connection
+    linker = SemanticInternalLinker(mock_mode=True)
+
+    for ws in workspaces:
+        workspace_id = UUID(ws["id"]) if isinstance(ws.get("id"), str) else ws.get("id")
+        if workspace_id:
+            try:
+                result = await linker.process_workspace(workspace_id)
+                results["workspaces_processed"] += 1
+                results["total_opportunities"] += result.get("opportunities_found", 0)
+            except Exception as e:
+                logger.error(f"Failed to process workspace {workspace_id}: {e}")
+
+    logger.info(
+        f"Nightly internal links update complete: "
+        f"{results['workspaces_processed']} workspaces, "
+        f"{results['total_opportunities']} opportunities"
+    )
+    return results
+
+
 # Celery task wrappers
 if celery_app:
     @celery_app.task(name="app.scheduler.tasks.generate_scheduled_articles")
@@ -228,6 +279,18 @@ if celery_app:
             Generated article data or None if failed
         """
         return run_async(_generate_article_for_plan(UUID(plan_id)))
+
+    @celery_app.task(name="app.scheduler.tasks.update_internal_links_nightly")
+    def update_internal_links_nightly() -> Dict[str, Any]:
+        """Celery task: Update internal links nightly.
+
+        This task runs nightly to find and create internal link
+        opportunities across all workspaces using semantic similarity.
+
+        Returns:
+            Summary of update results
+        """
+        return run_async(_update_internal_links_async())
 else:
     # Fallback functions when Celery is not configured
     async def generate_scheduled_articles() -> Dict[str, Any]:
@@ -241,3 +304,7 @@ else:
     async def generate_article_task(plan_id: str) -> Optional[Dict[str, Any]]:
         """Generate single article (non-Celery version)."""
         return await _generate_article_for_plan(UUID(plan_id))
+
+    async def update_internal_links_nightly() -> Dict[str, Any]:
+        """Update internal links (non-Celery version)."""
+        return await _update_internal_links_async()
