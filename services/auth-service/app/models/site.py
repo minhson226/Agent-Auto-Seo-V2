@@ -1,41 +1,15 @@
 """Site model."""
 
-import os
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.database_utils import get_foreign_key_reference, get_json_type, get_table_args
 from app.db.base import Base
-
-
-# Use schema for PostgreSQL, skip for SQLite (testing)
-def get_table_args():
-    """Get table args with schema if not using SQLite."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return {}
-    return {"schema": "autoseo"}
-
-
-# Use JSONB for PostgreSQL, JSON for SQLite
-def get_json_type():
-    """Get JSON type based on database."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return JSON
-    return JSONB
-
-
-def get_foreign_key_reference():
-    """Get foreign key reference with schema qualification."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return "workspaces.id"
-    return "autoseo.workspaces.id"
 
 
 class Site(Base):
@@ -49,7 +23,7 @@ class Site(Base):
     )
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(get_foreign_key_reference(), ondelete="CASCADE"),
+        ForeignKey(get_foreign_key_reference("workspaces"), ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

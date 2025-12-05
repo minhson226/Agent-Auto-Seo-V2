@@ -6,13 +6,13 @@ from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-# Set DATABASE_URL before importing models
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+# Set DATABASE_URL before importing models - required for SQLite compatibility in models
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool

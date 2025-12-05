@@ -1,49 +1,15 @@
 """Workspace model."""
 
-import os
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.database_utils import get_foreign_key_reference, get_json_type, get_table_args
 from app.db.base import Base
-
-
-# Use schema for PostgreSQL, skip for SQLite (testing)
-def get_table_args():
-    """Get table args with schema if not using SQLite."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return {}
-    return {"schema": "autoseo"}
-
-
-# Use JSONB for PostgreSQL, JSON for SQLite
-def get_json_type():
-    """Get JSON type based on database."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return JSON
-    return JSONB
-
-
-def get_users_foreign_key():
-    """Get foreign key reference for users with schema qualification."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return "users.id"
-    return "autoseo.users.id"
-
-
-def get_workspaces_foreign_key():
-    """Get foreign key reference for workspaces with schema qualification."""
-    db_url = os.environ.get("DATABASE_URL", "")
-    if "sqlite" in db_url:
-        return "workspaces.id"
-    return "autoseo.workspaces.id"
 
 
 class Workspace(Base):
@@ -58,7 +24,7 @@ class Workspace(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey(get_users_foreign_key(), ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_foreign_key_reference("users"), ondelete="CASCADE"), nullable=False
     )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -90,12 +56,12 @@ class WorkspaceMember(Base):
     )
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(get_workspaces_foreign_key(), ondelete="CASCADE"),
+        ForeignKey(get_foreign_key_reference("workspaces"), ondelete="CASCADE"),
         nullable=False,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(get_users_foreign_key(), ondelete="CASCADE"),
+        ForeignKey(get_foreign_key_reference("users"), ondelete="CASCADE"),
         nullable=False,
     )
     role: Mapped[str] = mapped_column(String(50), default="member")
