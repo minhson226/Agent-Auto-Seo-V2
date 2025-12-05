@@ -1,13 +1,18 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
+import os
 from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+# Set DATABASE_URL before importing models
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -18,6 +23,10 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.models.user import User
 from main import app
+
+
+# Configure pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)
 
 
 # Test settings
@@ -59,14 +68,20 @@ def event_loop() -> Generator:
     loop.close()
 
 
-@pytest.fixture(autouse=True)
-async def setup_database():
+@pytest.fixture(autouse=True, scope="function")
+def setup_database(event_loop):
     """Set up test database before each test."""
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async def _setup():
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    
+    async def _teardown():
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    
+    event_loop.run_until_complete(_setup())
     yield
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    event_loop.run_until_complete(_teardown())
 
 
 async def get_test_db() -> AsyncGenerator[AsyncSession, None]:
