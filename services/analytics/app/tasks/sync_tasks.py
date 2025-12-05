@@ -1,7 +1,7 @@
 """Automated data sync tasks for GA4 and GSC."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from app.connectors.ga4_connector import GA4Connector
@@ -58,7 +58,7 @@ async def insert_performance_data(
         Number of records inserted.
     """
     inserted_count = 0
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     # Create a map of GSC data by page path for joining
     gsc_by_page: Dict[str, Dict[str, Any]] = {}
@@ -179,11 +179,12 @@ async def sync_analytics_daily(
                     gsc_credentials = site.get("gsc_credentials")
                     ga_credentials = site.get("ga_credentials")
 
-                    # Calculate date range (yesterday's data)
-                    yesterday = (datetime.now() - timedelta(days=1)).strftime(
+                    # Calculate date range (yesterday's data) using UTC
+                    now_utc = datetime.now(timezone.utc)
+                    yesterday = (now_utc - timedelta(days=1)).strftime(
                         "%Y-%m-%d"
                     )
-                    today = datetime.now().strftime("%Y-%m-%d")
+                    today = now_utc.strftime("%Y-%m-%d")
 
                     ga_data: List[Dict[str, Any]] = []
                     gsc_data: List[Dict[str, Any]] = []
@@ -282,10 +283,11 @@ async def sync_single_site(
     Returns:
         Dictionary with sync results.
     """
+    now_utc = datetime.now(timezone.utc)
     if not start_date:
-        start_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        start_date = (now_utc - timedelta(days=1)).strftime("%Y-%m-%d")
     if not end_date:
-        end_date = datetime.now().strftime("%Y-%m-%d")
+        end_date = now_utc.strftime("%Y-%m-%d")
 
     results = {
         "ga4_records": 0,

@@ -213,6 +213,9 @@ class AlertingEngine:
                 name = item.get("name", "Unknown")
                 position_change = item.get("position_change", 0.0)
 
+                # Note: positive position_change means declining performance
+                # (e.g., moving from position 5 to position 13 = position_change of 8)
+                # Higher position numbers = worse rankings in search results
                 if position_change > self._thresholds["position_decline_threshold"]:
                     alert = Alert.create(
                         workspace_id=workspace_id,

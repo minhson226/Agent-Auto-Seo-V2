@@ -372,8 +372,6 @@ async def weekly_strategy_evaluation() -> Dict[str, Any]:
     Returns:
         Summary of evaluation results.
     """
-    from app.services.strategy_evaluator import strategy_evaluator
-
     logger.info("Starting weekly strategy evaluation")
 
     results = {
