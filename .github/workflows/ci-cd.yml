@@ -221,56 +221,56 @@ jobs:
             set -e
             echo "📁 Navigating to application directory"
             cd /srv/apps/auto-seo
-            
+
             echo "📥 Pulling latest code"
             git fetch origin
             git checkout ${{ github.sha }}
-            
+
             echo "🏷️ Setting image tag"
             export IMAGE_TAG=${{ needs.build-images.outputs.image_tag }}
             echo "IMAGE_TAG=$IMAGE_TAG" > .env.deploy
-            
+
             echo "🐳 Pulling Docker images"
             docker compose -f docker-compose.prod.yml pull
-            
+
             echo "🔄 Restarting services"
             docker compose -f docker-compose.prod.yml up -d
-            
+
             echo "⏳ Waiting for services to stabilize (30s)"
             sleep 30
-            
+
             echo "✅ Deployment complete"
             docker compose -f docker-compose.prod.yml ps
 
       - name: Health Check
         run: |
           echo "🏥 Running health checks"
-          
+
           # Try health endpoint first
           MAX_RETRIES=10
           RETRY_DELAY=5
-          
+
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i/$MAX_RETRIES: Checking health endpoint..."
-            
+
             RESPONSE=$(curl -s -w "\n%{http_code}" http://${{ secrets.PROD_SSH_HOST }}:9101/health || echo "000")
             HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
             BODY=$(echo "$RESPONSE" | head -n-1)
-            
+
             echo "HTTP Status: $HTTP_CODE"
             echo "Response: $BODY"
-            
+
             if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
               echo "✅ Health check passed!"
               exit 0
             fi
-            
+
             if [ $i -lt $MAX_RETRIES ]; then
               echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
               sleep $RETRY_DELAY
             fi
           done
-          
+
           echo "❌ Health check failed after $MAX_RETRIES attempts"
           exit 1
 
@@ -284,12 +284,12 @@ jobs:
           script: |
             echo "🔍 Gathering diagnostic information"
             cd /srv/apps/auto-seo
-            
+
             echo "=== Docker Compose Status ==="
             docker compose -f docker-compose.prod.yml ps
-            
+
             echo "=== API Gateway Logs (last 100 lines) ==="
             docker compose -f docker-compose.prod.yml logs --tail=100 api-gateway
-            
+
             echo "=== Container Health ==="
             docker ps --filter "name=autoseo-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
