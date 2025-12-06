@@ -4,7 +4,7 @@ This document describes the automated production deployment process for the Auto
 
 ## Overview
 
-The Auto-SEO Platform uses automated deployment via GitHub Actions to deploy to production servers using Docker Compose. The deployment is triggered automatically on pushes to the `main` branch after all tests pass.
+The Auto-SEO Platform uses automated deployment via GitHub Actions to deploy to production servers using Docker Compose. The deployment can be triggered automatically on pushes to the `main` branch or manually via workflow dispatch after all tests pass.
 
 ## Deployment Architecture
 
@@ -52,6 +52,10 @@ The following secrets must be configured in the GitHub repository settings under
 
 ### Automatic Deployment (Recommended)
 
+Deployments can be triggered in two ways:
+
+#### Option 1: Automatic deployment on push to main
+
 Deployments are automatically triggered when code is pushed to the `main` branch:
 
 1. **Developer pushes to main**:
@@ -67,7 +71,27 @@ Deployments are automatically triggered when code is pushed to the `main` branch
    - Deploys to production (requires manual approval in GitHub)
    - Performs health checks
 
-3. **Deployment steps on server**:
+#### Option 2: Manual workflow dispatch
+
+You can manually trigger a deployment from the GitHub UI:
+
+1. Navigate to the repository on GitHub
+2. Go to `Actions` tab
+3. Select the `CI/CD Pipeline` workflow
+4. Click `Run workflow` button
+5. Check the `Deploy to production environment` checkbox
+6. Click the green `Run workflow` button
+
+This is useful for:
+- Re-deploying the current commit without pushing new changes
+- Triggering a deployment after fixing environment variables on the server
+- Testing the deployment process
+
+#### Deployment Steps
+
+Both deployment methods follow the same process:
+
+1. **Deployment steps on server**:
    - Navigates to `/srv/apps/auto-seo`
    - Pulls the latest code at the specific commit SHA
    - Sets the image tag environment variable
@@ -75,7 +99,7 @@ Deployments are automatically triggered when code is pushed to the `main` branch
    - Restarts services with `docker compose up -d`
    - Waits for services to stabilize (30 seconds)
 
-4. **Health check**:
+2. **Health check**:
    - Attempts to reach `http://194.233.71.21:9101/health`
    - Retries up to 10 times with 5-second delays
    - Verifies HTTP status code is 2xx or 3xx
