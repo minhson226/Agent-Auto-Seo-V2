@@ -439,6 +439,7 @@ mkdir -p /srv/apps/auto-seo
 cd /srv/apps/auto-seo
 
 # Clone repository (first time only)
+# Note: Replace with your repository URL if you've forked this project
 if [ ! -d ".git" ]; then
     git clone https://github.com/minhson226/Agent-Auto-Seo-V2.git .
 fi

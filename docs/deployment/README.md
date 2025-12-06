@@ -40,6 +40,7 @@ For production deployment to the default server (194.233.71.21):
    ssh deploy@194.233.71.21
    mkdir -p /srv/apps/auto-seo
    cd /srv/apps/auto-seo
+   # Replace with your repository URL if forked
    git clone https://github.com/minhson226/Agent-Auto-Seo-V2.git .
    cp .env.production.example .env
    # Edit .env with production values

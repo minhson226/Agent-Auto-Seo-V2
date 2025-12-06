@@ -228,7 +228,7 @@ jobs:
 
             echo "🏷️ Setting image tag"
             export IMAGE_TAG=${{ needs.build-images.outputs.image_tag }}
-            echo "IMAGE_TAG=$IMAGE_TAG" > .env.deploy
+            echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
 
             echo "🐳 Pulling Docker images"
             docker compose -f docker-compose.prod.yml pull
