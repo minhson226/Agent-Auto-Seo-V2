@@ -51,7 +51,6 @@ The following secrets must be configured in the GitHub repository settings under
 ## Deployment Process
 
 ### Automatic Deployment (Recommended)
-### Automatic Deployment (Recommended)
 
 Deployments can be triggered in two ways:
 
@@ -90,7 +89,9 @@ This is useful for:
 
 #### Deployment Steps
 
-3. **Deployment steps on server**:
+Both deployment methods follow the same process:
+
+1. **Deployment steps on server**:
    - Navigates to `/srv/apps/auto-seo`
    - Pulls the latest code at the specific commit SHA
    - Sets the image tag environment variable
@@ -98,7 +99,7 @@ This is useful for:
    - Restarts services with `docker compose up -d`
    - Waits for services to stabilize (30 seconds)
 
-4. **Health check**:
+2. **Health check**:
    - Attempts to reach `http://194.233.71.21:9101/health`
    - Retries up to 10 times with 5-second delays
    - Verifies HTTP status code is 2xx or 3xx
