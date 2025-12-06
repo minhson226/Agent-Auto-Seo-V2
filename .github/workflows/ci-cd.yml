@@ -65,6 +65,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -89,13 +91,78 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      # Placeholder for service builds
-      # Add service-specific build steps as services are developed
-      - name: Build status
+      - name: Build and push API Gateway
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/api-gateway
+          file: ./services/api-gateway/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Auth Service
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/auth-service
+          file: ./services/auth-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Notification Service
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/notification-service
+          file: ./services/notification-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/notification-service:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/notification-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Content Generator
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/content-generator
+          file: ./services/content-generator/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/content-generator:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/content-generator:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Analytics Service
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/analytics
+          file: ./services/analytics/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/analytics:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/analytics:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build summary
         run: |
-          echo "Docker build configuration validated"
-          echo "Services will be built as they are developed in future phases"
+          echo "✅ Docker images built and pushed successfully"
+          echo "Image tag: ${{ steps.meta.outputs.version }}"
+          echo "Registry: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
 
   test-infrastructure:
     name: Test Infrastructure
@@ -124,33 +191,10 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build-images, test-infrastructure]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: staging
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to staging (placeholder)
-        run: |
-          echo "Staging deployment placeholder"
-          echo "Configure your Kubernetes cluster connection here"
-          # kubectl config use-context staging
-          # kubectl apply -f k8s/namespaces/
-          # kubectl apply -f k8s/configmaps/
-          # kubectl apply -f k8s/secrets/
-          # kubectl apply -f k8s/databases/
-          # kubectl apply -f k8s/monitoring/
-
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: deploy-staging
+    needs: [build-images, test-infrastructure]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     permissions:
@@ -159,10 +203,93 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to production (placeholder)
+      - name: Deploy info
         run: |
-          echo "Production deployment placeholder"
-          echo "Manual approval required before production deployment"
-          # kubectl config use-context production
-          # kubectl apply -f k8s/namespaces/
-          # ... etc
+          echo "🚀 Deploying to Production"
+          echo "Commit: ${{ github.sha }}"
+          echo "Image tag: ${{ needs.build-images.outputs.image_tag }}"
+          echo "Target: ${{ secrets.PROD_SSH_HOST }}:9101"
+          echo "Path: /srv/apps/auto-seo"
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -e
+            echo "📁 Navigating to application directory"
+            cd /srv/apps/auto-seo
+            
+            echo "📥 Pulling latest code"
+            git fetch origin
+            git checkout ${{ github.sha }}
+            
+            echo "🏷️ Setting image tag"
+            export IMAGE_TAG=${{ needs.build-images.outputs.image_tag }}
+            echo "IMAGE_TAG=$IMAGE_TAG" > .env.deploy
+            
+            echo "🐳 Pulling Docker images"
+            docker compose -f docker-compose.prod.yml pull
+            
+            echo "🔄 Restarting services"
+            docker compose -f docker-compose.prod.yml up -d
+            
+            echo "⏳ Waiting for services to stabilize (30s)"
+            sleep 30
+            
+            echo "✅ Deployment complete"
+            docker compose -f docker-compose.prod.yml ps
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health checks"
+          
+          # Try health endpoint first
+          MAX_RETRIES=10
+          RETRY_DELAY=5
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES: Checking health endpoint..."
+            
+            RESPONSE=$(curl -s -w "\n%{http_code}" http://${{ secrets.PROD_SSH_HOST }}:9101/health || echo "000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n-1)
+            
+            echo "HTTP Status: $HTTP_CODE"
+            echo "Response: $BODY"
+            
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          
+          echo "❌ Health check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Post-deploy diagnostics (on failure)
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            echo "🔍 Gathering diagnostic information"
+            cd /srv/apps/auto-seo
+            
+            echo "=== Docker Compose Status ==="
+            docker compose -f docker-compose.prod.yml ps
+            
+            echo "=== API Gateway Logs (last 100 lines) ==="
+            docker compose -f docker-compose.prod.yml logs --tail=100 api-gateway
+            
+            echo "=== Container Health ==="
+            docker ps --filter "name=autoseo-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
