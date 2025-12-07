@@ -1,0 +1,361 @@
+phase:
+  id: "PHASE-D01"
+  slug: "api-gateway-unified-rest"
+  title: "API Gateway - Unified REST API Layer"
+
+  summary: |
+    Enhance the existing API Gateway to expose a comprehensive, unified REST API under /api/v1/*
+    that aggregates and routes requests to all backend microservices. This phase creates the
+    complete API layer needed for the admin dashboard, including authentication, workspace
+    management, keyword ingestion, content generation, SEO scoring, analytics, and system diagnostics.
+
+  goal: |
+    A fully functional, well-documented REST API gateway that exposes all platform features
+    through a unified /api/v1/* endpoint structure, with proper authentication, rate limiting,
+    error handling, and comprehensive API documentation.
+
+  from_master_spec:
+    sections:
+      - "master-spec-dashboard-api.txt - Section 2: API Layer Requirements"
+      - "master-spec-dashboard-api.txt - Section 2.1: Unified REST API Through API Gateway"
+      - "master-spec-dashboard-api.txt - Section 2.2: API Gateway Enhancements"
+
+  scope:
+    included:
+      - "Implement REST endpoints for Auth & User Management (register, login, refresh, profile)"
+      - "Implement endpoints for Workspace & Site Management (CRUD operations)"
+      - "Implement endpoints for Keyword Ingestion & Job Management"
+      - "Implement endpoints for SEO Strategy & Content Plans"
+      - "Implement endpoints for Content Generation & Articles"
+      - "Implement endpoints for SEO Scoring"
+      - "Implement endpoints for Publishing"
+      - "Implement endpoints for Analytics"
+      - "Implement endpoints for Notifications & Webhooks"
+      - "Implement endpoints for System Diagnostics & Health"
+      - "Add JWT authentication middleware"
+      - "Add rate limiting per user/workspace"
+      - "Add request/response logging"
+      - "Add error normalization and standardization"
+      - "Configure CORS for dashboard access"
+      - "Add request validation"
+      - "Add response caching for read-heavy endpoints"
+      - "Create OpenAPI/Swagger documentation"
+      - "Write integration tests for all endpoints"
+      - "Update API documentation"
+    excluded:
+      - "Dashboard frontend implementation"
+      - "Modifications to existing microservices (only routing to them)"
+      - "Advanced features like GraphQL, WebSockets"
+      - "OAuth2 with third-party providers"
+
+  dependencies:
+    - "Existing microservices: auth-service, keyword-ingestion, content-generator, seo-scorer, seo-strategy, analytics, notification-service"
+
+  inputs:
+    - name: "Existing API Gateway"
+      type: "codebase"
+      location: "services/api-gateway/"
+      description: "Current API Gateway implementation"
+    - name: "Existing Microservices"
+      type: "services"
+      location: "services/"
+      description: "Backend microservices to route requests to"
+    - name: "Master Spec Addendum"
+      type: "documentation"
+      location: "docs/phase-specs/master-spec-dashboard-api.txt"
+      description: "Detailed API requirements"
+
+  outputs:
+    - name: "Enhanced API Gateway"
+      type: "code"
+      description: "API Gateway with all unified REST endpoints"
+      location_hint: "services/api-gateway/"
+    - name: "OpenAPI Documentation"
+      type: "documentation"
+      description: "Complete API specification in OpenAPI 3.0 format"
+      location_hint: "docs/api/openapi.yml"
+    - name: "Integration Tests"
+      type: "tests"
+      description: "Tests for all API endpoints"
+      location_hint: "services/api-gateway/tests/"
+    - name: "API Documentation"
+      type: "documentation"
+      description: "Updated API usage guide"
+      location_hint: "docs/api/README.md"
+
+  implementation_prompt: |
+    You are a senior backend engineer implementing the **PHASE-D01: API Gateway - Unified REST API Layer** for the Auto-SEO platform.
+
+    ## CONTEXT
+
+    The Auto-SEO platform has multiple backend microservices (auth-service, keyword-ingestion, content-generator, seo-scorer, seo-strategy, analytics, notification-service) but lacks a unified API layer for the admin dashboard. Your task is to enhance the existing API Gateway to expose all platform features through a consistent REST API under `/api/v1/*`.
+
+    **Current State:**
+    - API Gateway exists at `services/api-gateway/`
+    - Backend microservices are operational
+    - No comprehensive REST API layer for dashboard
+
+    **Target State:**
+    - Complete REST API at `/api/v1/*` with all endpoints
+    - Proper authentication and authorization
+    - Rate limiting and caching
+    - Comprehensive API documentation
+    - Integration tests
+
+    ## REQUIREMENTS
+
+    ### 1. API Endpoints to Implement
+
+    Implement the following endpoint categories (refer to master-spec-dashboard-api.txt Section 2.1 for complete list):
+
+    **A. Authentication & User Management:**
+    ```
+    POST   /api/v1/auth/register
+    POST   /api/v1/auth/login
+    POST   /api/v1/auth/refresh
+    GET    /api/v1/auth/me
+    PUT    /api/v1/auth/profile
+    POST   /api/v1/auth/logout
+    ```
+
+    **B. Workspace & Site Management:**
+    ```
+    GET    /api/v1/workspaces
+    POST   /api/v1/workspaces
+    GET    /api/v1/workspaces/:id
+    PUT    /api/v1/workspaces/:id
+    DELETE /api/v1/workspaces/:id
+    GET    /api/v1/workspaces/:wid/sites
+    POST   /api/v1/workspaces/:wid/sites
+    GET    /api/v1/sites/:id
+    PUT    /api/v1/sites/:id
+    DELETE /api/v1/sites/:id
+    POST   /api/v1/sites/:id/test-connection
+    ```
+
+    **C. Keyword Ingestion:**
+    ```
+    GET    /api/v1/keyword-lists
+    POST   /api/v1/keyword-lists (upload CSV/TXT)
+    GET    /api/v1/keyword-lists/:id
+    DELETE /api/v1/keyword-lists/:id
+    GET    /api/v1/keyword-lists/:id/keywords
+    POST   /api/v1/keyword-lists/:id/enrich
+    GET    /api/v1/keyword-jobs/:id
+    ```
+
+    **D. SEO Strategy & Content Planning:**
+    ```
+    GET    /api/v1/topic-clusters
+    POST   /api/v1/topic-clusters
+    GET    /api/v1/topic-clusters/:id
+    PUT    /api/v1/topic-clusters/:id
+    DELETE /api/v1/topic-clusters/:id
+    POST   /api/v1/topic-clusters/:id/keywords
+    GET    /api/v1/content-plans
+    POST   /api/v1/content-plans
+    GET    /api/v1/content-plans/:id
+    PUT    /api/v1/content-plans/:id
+    DELETE /api/v1/content-plans/:id
+    ```
+
+    **E. Content Generation:**
+    ```
+    GET    /api/v1/articles
+    POST   /api/v1/articles
+    GET    /api/v1/articles/:id
+    PUT    /api/v1/articles/:id
+    DELETE /api/v1/articles/:id
+    GET    /api/v1/articles/:id/content
+    POST   /api/v1/articles/:id/regenerate
+    GET    /api/v1/generation-jobs/:id
+    ```
+
+    **F. SEO Scoring:**
+    ```
+    GET    /api/v1/articles/:id/seo-score
+    POST   /api/v1/articles/:id/score
+    GET    /api/v1/seo-scores/:id
+    ```
+
+    **G. Publishing:**
+    ```
+    POST   /api/v1/articles/:id/publish
+    GET    /api/v1/published-posts
+    GET    /api/v1/published-posts/:id
+    DELETE /api/v1/published-posts/:id
+    ```
+
+    **H. Analytics:**
+    ```
+    GET    /api/v1/analytics/overview
+    GET    /api/v1/analytics/articles/:id/performance
+    GET    /api/v1/analytics/workspace/:id/metrics
+    GET    /api/v1/analytics/trends
+    ```
+
+    **I. Notifications & Webhooks:**
+    ```
+    GET    /api/v1/notifications
+    PUT    /api/v1/notifications/:id/read
+    POST   /api/v1/webhooks
+    GET    /api/v1/webhooks
+    DELETE /api/v1/webhooks/:id
+    ```
+
+    **J. System Diagnostics:**
+    ```
+    GET    /api/v1/health
+    GET    /api/v1/health/services
+    GET    /api/v1/system/status
+    GET    /api/v1/system/metrics
+    ```
+
+    ### 2. Implementation Details
+
+    **A. Request Routing:**
+    - Use a routing layer to forward requests to appropriate microservices
+    - Example: `/api/v1/auth/*` → `auth-service`
+    - Example: `/api/v1/keyword-lists/*` → `keyword-ingestion`
+    - Handle service unavailability gracefully
+
+    **B. Authentication Middleware:**
+    ```javascript
+    // Verify JWT token on protected routes
+    // Extract user info and workspace context
+    // Add to request object for downstream use
+    ```
+
+    **C. Rate Limiting:**
+    ```javascript
+    // Per user: 100 requests/minute
+    // Per workspace: 1000 requests/minute
+    // Use Redis for distributed rate limiting
+    ```
+
+    **D. Error Handling:**
+    ```javascript
+    // Standardized error response format:
+    {
+      "error": {
+        "code": "RESOURCE_NOT_FOUND",
+        "message": "Article with ID xyz not found",
+        "details": {},
+        "timestamp": "2025-12-07T12:00:00Z"
+      }
+    }
+    ```
+
+    **E. CORS Configuration:**
+    ```javascript
+    // Allow dashboard origin
+    // Allow credentials
+    // Specify allowed headers
+    // Specify allowed methods
+    ```
+
+    **F. Request Validation:**
+    - Validate request body schemas
+    - Validate path parameters
+    - Validate query parameters
+    - Return 400 Bad Request with details
+
+    **G. Response Caching:**
+    - Cache GET requests for read-heavy endpoints
+    - Use Redis with appropriate TTL
+    - Invalidate on mutations
+
+    ### 3. API Documentation
+
+    **Create OpenAPI 3.0 Specification:**
+    - Document all endpoints
+    - Include request/response schemas
+    - Include authentication requirements
+    - Include examples
+    - Host at `/api/docs` with Swagger UI
+
+    ### 4. Testing
+
+    **Write Integration Tests:**
+    - Test each endpoint
+    - Test authentication flow
+    - Test error cases
+    - Test rate limiting
+    - Aim for >80% coverage
+
+    ## DELIVERABLES
+
+    1. Enhanced API Gateway with all endpoints implemented
+    2. OpenAPI documentation at `docs/api/openapi.yml`
+    3. Integration tests with >80% coverage
+    4. Updated `docs/api/README.md` with usage examples
+    5. All tests passing
+
+    ## ACCEPTANCE CRITERIA
+
+    - [ ] All specified endpoints implemented and functional
+    - [ ] JWT authentication middleware working correctly
+    - [ ] Rate limiting configured and tested
+    - [ ] Error responses follow standard format
+    - [ ] CORS configured for dashboard access
+    - [ ] OpenAPI documentation complete and accurate
+    - [ ] Integration tests passing with >80% coverage
+    - [ ] API documentation updated in README
+    - [ ] No breaking changes to existing functionality
+    - [ ] All existing tests still passing
+
+    ## TECHNICAL CONSTRAINTS
+
+    - Use existing API Gateway codebase (likely Node.js/Express or Python/FastAPI)
+    - Do not modify microservice internals, only route to them
+    - Maintain backwards compatibility
+    - Follow existing code patterns and conventions
+    - Use environment variables for configuration
+
+    ## TIPS
+
+    - Start with core auth endpoints first
+    - Test each endpoint as you implement it
+    - Use a consistent pattern for routing
+    - Implement middleware once, reuse everywhere
+    - Keep error handling DRY
+    - Document as you go
+
+    Good luck! Make the API layer solid and developer-friendly.
+
+  acceptance_criteria:
+    - "All specified REST endpoints implemented and functional"
+    - "JWT authentication middleware working on protected routes"
+    - "Rate limiting configured: 100 req/min per user, 1000 req/min per workspace"
+    - "Error responses use standardized format"
+    - "CORS configured to allow dashboard origin"
+    - "Request validation implemented with proper 400 responses"
+    - "Response caching working for read-heavy endpoints"
+    - "OpenAPI 3.0 documentation complete at docs/api/openapi.yml"
+    - "Swagger UI accessible at /api/docs"
+    - "Integration tests written with >80% coverage"
+    - "All integration tests passing"
+    - "API documentation updated in docs/api/README.md"
+    - "No breaking changes to existing microservices"
+    - "All existing tests continue to pass"
+    - "Service health checks return correct status"
+
+  non_goals:
+    - "Dashboard frontend implementation"
+    - "Modifying microservice internals"
+    - "GraphQL or WebSocket APIs"
+    - "OAuth2 integration with third-party providers"
+    - "Advanced API analytics or monitoring dashboards"
+    - "API key management (separate from JWT)"
+    - "Multi-region deployment"
+
+  notes:
+    - "This phase focuses solely on the API layer, not the dashboard UI"
+    - "All microservices are assumed to be functional and accessible"
+    - "Use service discovery if available, otherwise use environment variables for service URLs"
+    - "Consider using API Gateway patterns like circuit breaker for resilience"
+    - "Redis should be used for both rate limiting and caching"
+    - "Make sure to handle file uploads for keyword CSV/TXT files (multipart/form-data)"
+    - "Consider implementing API versioning from the start (/api/v1/*)"
+    - "Log all requests for debugging and monitoring"
+    - "Use correlation IDs for request tracing across services"

@@ -1,0 +1,689 @@
+phase:
+  id: "PHASE-D02"
+  slug: "dashboard-core-features"
+  title: "Dashboard - Core Features & Authentication"
+
+  summary: |
+    Build the core admin dashboard using React, TypeScript, and Vite. Implement authentication
+    flow, main layout, and essential CRUD interfaces for workspaces, sites, keywords, and basic
+    content management. This phase establishes the foundation for all dashboard features with
+    proper state management, API integration, and error handling.
+
+  goal: |
+    A functional admin dashboard with working authentication, responsive layout, and core
+    features that allow users to manage workspaces, sites, keywords, content plans, and
+    articles through an intuitive web interface.
+
+  from_master_spec:
+    sections:
+      - "master-spec-dashboard-api.txt - Section 3: Dashboard Requirements"
+      - "master-spec-dashboard-api.txt - Section 3.1: Authentication & Authorization"
+      - "master-spec-dashboard-api.txt - Section 3.2: Main Dashboard Layout"
+      - "master-spec-dashboard-api.txt - Section 3.3: Core Feature Pages (A-F)"
+      - "master-spec-dashboard-api.txt - Section 3.4: Technical Requirements"
+
+  scope:
+    included:
+      - "Authentication flow: Login, Register, JWT handling, protected routes"
+      - "Main dashboard layout: Header, sidebar navigation, content area, footer"
+      - "Dashboard home page with summary cards and quick actions"
+      - "Workspace management UI: List, create, edit, delete workspaces"
+      - "Site management UI: List, create, edit, delete, test connection"
+      - "Keyword management UI: Upload CSV/TXT, list, view, filter, search"
+      - "Basic content plan UI: List, create, view"
+      - "Article listing and viewing UI"
+      - "API client layer with Axios and React Query"
+      - "Error handling: Error boundaries, toast notifications"
+      - "Loading states for async operations"
+      - "Responsive design for desktop, tablet, mobile"
+      - "Basic routing with React Router"
+      - "Unit and integration tests for core components"
+    excluded:
+      - "Advanced features: Drag-and-drop, analytics charts, SEO scoring UI"
+      - "Publishing interface"
+      - "Notifications center"
+      - "System status page"
+      - "Settings page (will be in next phase)"
+      - "Docker deployment (separate phase)"
+
+  dependencies:
+    - "PHASE-D01"
+
+  inputs:
+    - name: "API Gateway"
+      type: "api"
+      location: "services/api-gateway/"
+      description: "Unified REST API from PHASE-D01"
+    - name: "Dashboard Skeleton"
+      type: "codebase"
+      location: "frontend/dashboard/"
+      description: "Existing React + TypeScript + Vite setup"
+    - name: "Master Spec Addendum"
+      type: "documentation"
+      location: "docs/phase-specs/master-spec-dashboard-api.txt"
+      description: "Dashboard requirements and specifications"
+
+  outputs:
+    - name: "Dashboard Application"
+      type: "code"
+      description: "Core dashboard features implementation"
+      location_hint: "frontend/dashboard/src/"
+    - name: "API Client Layer"
+      type: "code"
+      description: "API client functions with React Query"
+      location_hint: "frontend/dashboard/src/api/"
+    - name: "UI Components"
+      type: "code"
+      description: "Reusable React components"
+      location_hint: "frontend/dashboard/src/components/"
+    - name: "Tests"
+      type: "tests"
+      description: "Unit and integration tests"
+      location_hint: "frontend/dashboard/src/**/*.test.tsx"
+    - name: "Documentation"
+      type: "documentation"
+      description: "Dashboard README with setup instructions"
+      location_hint: "frontend/dashboard/README.md"
+
+  implementation_prompt: |
+    You are a senior frontend engineer implementing **PHASE-D02: Dashboard - Core Features & Authentication** for the Auto-SEO platform.
+
+    ## CONTEXT
+
+    The API Gateway now exposes a unified REST API at `/api/v1/*` (from PHASE-D01). Your task is to build the core admin dashboard that consumes this API, allowing users to authenticate and manage their workspaces, sites, keywords, and content.
+
+    **Current State:**
+    - Frontend skeleton exists at `frontend/dashboard/`
+    - React 19, TypeScript, Vite already set up
+    - Dependencies installed: React Query, Axios, TailwindCSS, React Router, Headless UI
+    - API Gateway provides all necessary endpoints
+
+    **Target State:**
+    - Functional dashboard with authentication
+    - Core features accessible and working
+    - Responsive UI with good UX
+    - Proper error handling and loading states
+
+    ## PROJECT STRUCTURE
+
+    Organize code as follows:
+
+    ```
+    frontend/dashboard/src/
+    ├── api/
+    │   ├── client.ts          # Axios instance with interceptors
+    │   ├── auth.ts            # Auth API calls
+    │   ├── workspaces.ts      # Workspace API calls
+    │   ├── sites.ts           # Site API calls
+    │   ├── keywords.ts        # Keyword API calls
+    │   ├── contentPlans.ts    # Content plan API calls
+    │   ├── articles.ts        # Article API calls
+    │   └── types.ts           # API response types
+    ├── components/
+    │   ├── auth/
+    │   │   ├── LoginForm.tsx
+    │   │   ├── RegisterForm.tsx
+    │   │   └── ProtectedRoute.tsx
+    │   ├── layout/
+    │   │   ├── Header.tsx
+    │   │   ├── Sidebar.tsx
+    │   │   ├── Layout.tsx
+    │   │   └── Footer.tsx
+    │   ├── workspace/
+    │   │   ├── WorkspaceList.tsx
+    │   │   ├── WorkspaceForm.tsx
+    │   │   └── WorkspaceCard.tsx
+    │   ├── sites/
+    │   │   ├── SiteList.tsx
+    │   │   ├── SiteForm.tsx
+    │   │   └── SiteCard.tsx
+    │   ├── keywords/
+    │   │   ├── KeywordUpload.tsx
+    │   │   ├── KeywordList.tsx
+    │   │   └── KeywordTable.tsx
+    │   ├── content/
+    │   │   ├── ContentPlanList.tsx
+    │   │   ├── ContentPlanForm.tsx
+    │   │   ├── ArticleList.tsx
+    │   │   └── ArticleCard.tsx
+    │   └── common/
+    │       ├── Button.tsx
+    │       ├── Input.tsx
+    │       ├── Card.tsx
+    │       ├── Modal.tsx
+    │       ├── LoadingSpinner.tsx
+    │       └── ErrorMessage.tsx
+    ├── hooks/
+    │   ├── useAuth.ts
+    │   ├── useWorkspaces.ts
+    │   ├── useSites.ts
+    │   ├── useKeywords.ts
+    │   ├── useContentPlans.ts
+    │   └── useArticles.ts
+    ├── pages/
+    │   ├── auth/
+    │   │   ├── LoginPage.tsx
+    │   │   └── RegisterPage.tsx
+    │   ├── DashboardHome.tsx
+    │   ├── WorkspacesPage.tsx
+    │   ├── SitesPage.tsx
+    │   ├── KeywordsPage.tsx
+    │   ├── ContentPlansPage.tsx
+    │   └── ArticlesPage.tsx
+    ├── store/
+    │   ├── authStore.ts      # Auth state (user, token)
+    │   └── workspaceStore.ts # Current workspace context
+    ├── utils/
+    │   ├── storage.ts        # localStorage helpers
+    │   ├── formatting.ts     # Date, number formatting
+    │   └── validation.ts     # Form validation
+    ├── types/
+    │   ├── user.ts
+    │   ├── workspace.ts
+    │   ├── site.ts
+    │   ├── keyword.ts
+    │   └── index.ts
+    ├── App.tsx
+    ├── main.tsx
+    └── index.css
+    ```
+
+    ## IMPLEMENTATION REQUIREMENTS
+
+    ### 1. API Client Setup
+
+    **Create `api/client.ts`:**
+    ```typescript
+    import axios from 'axios';
+
+    const apiClient = axios.create({
+      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+      timeout: 30000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Request interceptor to add JWT token
+    apiClient.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor for error handling
+    apiClient.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          // Handle unauthorized - clear token and redirect to login
+          localStorage.removeItem('auth_token');
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    export default apiClient;
+    ```
+
+    **Create API modules:**
+    - `api/auth.ts` - login, register, getMe, refreshToken
+    - `api/workspaces.ts` - getAll, getById, create, update, delete
+    - `api/sites.ts` - getAll, getById, create, update, delete, testConnection
+    - `api/keywords.ts` - upload, getAll, getById, delete, getKeywords
+    - `api/contentPlans.ts` - getAll, getById, create, update, delete
+    - `api/articles.ts` - getAll, getById, create, update, delete
+
+    ### 2. Authentication Flow
+
+    **A. Login Page:**
+    ```typescript
+    // pages/auth/LoginPage.tsx
+    import { useState } from 'react';
+    import { useNavigate } from 'react-router-dom';
+    import { useMutation } from '@tanstack/react-query';
+    import * as authAPI from '../../api/auth';
+
+    export function LoginPage() {
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const navigate = useNavigate();
+
+      const loginMutation = useMutation({
+        mutationFn: authAPI.login,
+        onSuccess: (data) => {
+          localStorage.setItem('auth_token', data.token);
+          navigate('/');
+        },
+      });
+
+      const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        loginMutation.mutate({ email, password });
+      };
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="max-w-md w-full space-y-8">
+            <h2 className="text-3xl font-bold text-center">Sign in to Auto-SEO</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full px-3 py-2 border rounded"
+                required
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full px-3 py-2 border rounded"
+                required
+              />
+              <button
+                type="submit"
+                disabled={loginMutation.isPending}
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
+              </button>
+              {loginMutation.isError && (
+                <p className="text-red-600 text-sm">Login failed. Check credentials.</p>
+              )}
+            </form>
+          </div>
+        </div>
+      );
+    }
+    ```
+
+    **B. Protected Routes:**
+    ```typescript
+    // components/auth/ProtectedRoute.tsx
+    import { Navigate } from 'react-router-dom';
+
+    export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        return <Navigate to="/login" replace />;
+      }
+
+      return <>{children}</>;
+    }
+    ```
+
+    **C. Auth Hook:**
+    ```typescript
+    // hooks/useAuth.ts
+    import { useQuery, useMutation } from '@tanstack/react-query';
+    import * as authAPI from '../api/auth';
+
+    export function useAuth() {
+      const { data: user, isLoading } = useQuery({
+        queryKey: ['auth', 'me'],
+        queryFn: authAPI.getMe,
+        enabled: !!localStorage.getItem('auth_token'),
+      });
+
+      const logout = () => {
+        localStorage.removeItem('auth_token');
+        window.location.href = '/login';
+      };
+
+      return { user, isLoading, logout };
+    }
+    ```
+
+    ### 3. Main Layout
+
+    **Layout Component:**
+    ```typescript
+    // components/layout/Layout.tsx
+    import { Outlet } from 'react-router-dom';
+    import { Header } from './Header';
+    import { Sidebar } from './Sidebar';
+
+    export function Layout() {
+      return (
+        <div className="min-h-screen bg-gray-100">
+          <Header />
+          <div className="flex">
+            <Sidebar />
+            <main className="flex-1 p-6">
+              <Outlet />
+            </main>
+          </div>
+        </div>
+      );
+    }
+    ```
+
+    **Header with user menu and workspace selector**
+    **Sidebar with navigation links**
+
+    ### 4. Dashboard Home
+
+    **Summary cards:**
+    - Total Workspaces
+    - Total Keywords
+    - Total Articles
+    - Published Posts
+
+    **Recent activity timeline**
+    **Quick actions: Upload Keywords, Create Content Plan, Generate Article**
+
+    ### 5. Workspace Management
+
+    **List, Create, Edit, Delete workspaces**
+    ```typescript
+    // hooks/useWorkspaces.ts
+    import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+    import * as workspacesAPI from '../api/workspaces';
+
+    export function useWorkspaces() {
+      const queryClient = useQueryClient();
+
+      const workspaces = useQuery({
+        queryKey: ['workspaces'],
+        queryFn: workspacesAPI.getAll,
+      });
+
+      const createWorkspace = useMutation({
+        mutationFn: workspacesAPI.create,
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+        },
+      });
+
+      const updateWorkspace = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: any }) => 
+          workspacesAPI.update(id, data),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+        },
+      });
+
+      const deleteWorkspace = useMutation({
+        mutationFn: workspacesAPI.delete,
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+        },
+      });
+
+      return { workspaces, createWorkspace, updateWorkspace, deleteWorkspace };
+    }
+    ```
+
+    ### 6. Site Management
+
+    Similar to workspaces, implement:
+    - List sites in current workspace
+    - Create/Edit site form (URL, WordPress credentials)
+    - Test connection button
+    - Delete site
+
+    ### 7. Keyword Management
+
+    **File upload component:**
+    ```typescript
+    // components/keywords/KeywordUpload.tsx
+    import { useState } from 'react';
+    import { useMutation, useQueryClient } from '@tanstack/react-query';
+    import * as keywordsAPI from '../../api/keywords';
+
+    export function KeywordUpload() {
+      const [file, setFile] = useState<File | null>(null);
+      const [name, setName] = useState('');
+      const queryClient = useQueryClient();
+
+      const uploadMutation = useMutation({
+        mutationFn: keywordsAPI.upload,
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['keyword-lists'] });
+          setFile(null);
+          setName('');
+        },
+      });
+
+      const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('name', name);
+        uploadMutation.mutate(formData);
+      };
+
+      return (
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="List name"
+            required
+          />
+          <input
+            type="file"
+            accept=".csv,.txt"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            required
+          />
+          <button type="submit" disabled={uploadMutation.isPending}>
+            {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
+          </button>
+        </form>
+      );
+    }
+    ```
+
+    **Keyword list and table components**
+
+    ### 8. Content Plans & Articles
+
+    Basic list and create interfaces for:
+    - Content plans
+    - Articles (just viewing for now, editing in next phase)
+
+    ### 9. Routing
+
+    ```typescript
+    // App.tsx
+    import { BrowserRouter, Routes, Route } from 'react-router-dom';
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+    import { LoginPage } from './pages/auth/LoginPage';
+    import { RegisterPage } from './pages/auth/RegisterPage';
+    import { Layout } from './components/layout/Layout';
+    import { ProtectedRoute } from './components/auth/ProtectedRoute';
+    import { DashboardHome } from './pages/DashboardHome';
+    // ... other imports
+
+    const queryClient = new QueryClient();
+
+    function App() {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<DashboardHome />} />
+                <Route path="workspaces" element={<WorkspacesPage />} />
+                <Route path="sites" element={<SitesPage />} />
+                <Route path="keywords" element={<KeywordsPage />} />
+                <Route path="content-plans" element={<ContentPlansPage />} />
+                <Route path="articles" element={<ArticlesPage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </QueryClientProvider>
+      );
+    }
+
+    export default App;
+    ```
+
+    ### 10. Error Handling & UX
+
+    **Error Boundary:**
+    ```typescript
+    // components/common/ErrorBoundary.tsx
+    import { Component, ErrorInfo, ReactNode } from 'react';
+
+    export class ErrorBoundary extends Component<
+      { children: ReactNode },
+      { hasError: boolean }
+    > {
+      state = { hasError: false };
+
+      static getDerivedStateFromError() {
+        return { hasError: true };
+      }
+
+      componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+        console.error('Error caught by boundary:', error, errorInfo);
+      }
+
+      render() {
+        if (this.state.hasError) {
+          return <div>Something went wrong. Please refresh.</div>;
+        }
+        return this.props.children;
+      }
+    }
+    ```
+
+    **Loading states, toast notifications, error messages**
+
+    ### 11. Styling
+
+    Use TailwindCSS for all styling:
+    - Responsive design (mobile-first)
+    - Consistent colors, spacing, typography
+    - Accessible components (proper labels, aria-*)
+
+    ### 12. Testing
+
+    Write tests for:
+    - API client functions
+    - Custom hooks
+    - Key components (forms, lists)
+    - Integration tests for auth flow
+
+    ```typescript
+    // hooks/useAuth.test.ts
+    import { renderHook, waitFor } from '@testing-library/react';
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+    import { useAuth } from './useAuth';
+
+    // ... test implementation
+    ```
+
+    ## DELIVERABLES
+
+    1. Working authentication flow (login, register, protected routes)
+    2. Main dashboard layout with header and sidebar
+    3. Dashboard home page with summary
+    4. Workspace management UI
+    5. Site management UI
+    6. Keyword upload and management UI
+    7. Basic content plan and article listing
+    8. API client layer with React Query
+    9. Error handling and loading states
+    10. Responsive design
+    11. Tests with >70% coverage
+    12. Updated README with setup instructions
+
+    ## ACCEPTANCE CRITERIA
+
+    - [ ] User can register, login, and logout
+    - [ ] Protected routes redirect to login if not authenticated
+    - [ ] Dashboard home displays summary cards
+    - [ ] User can create, view, edit, delete workspaces
+    - [ ] User can create, view, edit, delete sites
+    - [ ] User can upload keyword CSV/TXT files
+    - [ ] User can view keyword lists and keywords
+    - [ ] User can view content plans and articles
+    - [ ] All forms have proper validation
+    - [ ] Loading states shown during API calls
+    - [ ] Errors displayed to user in friendly way
+    - [ ] UI responsive on desktop, tablet, mobile
+    - [ ] No console errors
+    - [ ] Tests passing with >70% coverage
+    - [ ] Code follows TypeScript best practices
+
+    ## TIPS
+
+    - Start with authentication and layout first
+    - Build one feature at a time, test as you go
+    - Reuse components (Button, Input, Card, etc.)
+    - Use React Query's built-in caching and refetching
+    - Handle loading and error states consistently
+    - Make UI accessible (keyboard navigation, screen readers)
+    - Keep components small and focused
+    - Use TypeScript strictly (no `any` types)
+
+    Good luck building an awesome dashboard!
+
+  acceptance_criteria:
+    - "User can register with email and password"
+    - "User can login and receive JWT token"
+    - "Protected routes redirect to login if not authenticated"
+    - "Dashboard layout renders with header, sidebar, and content area"
+    - "Dashboard home shows summary cards with data from API"
+    - "User can create, view, edit, and delete workspaces"
+    - "User can create, view, edit, and delete sites"
+    - "User can test WordPress connection for sites"
+    - "User can upload keyword CSV/TXT files"
+    - "User can view list of keyword lists and keywords"
+    - "User can view content plans"
+    - "User can view articles"
+    - "All forms have validation and show errors"
+    - "Loading spinners shown during async operations"
+    - "Error messages displayed to user when operations fail"
+    - "UI is responsive on desktop (1920px), tablet (768px), and mobile (375px)"
+    - "No console errors in browser"
+    - "TypeScript compilation successful with no errors"
+    - "Unit tests pass with >70% coverage"
+    - "Integration tests for auth flow pass"
+    - "README.md updated with setup and development instructions"
+
+  non_goals:
+    - "Drag-and-drop clustering interface"
+    - "Analytics charts and dashboards"
+    - "SEO scoring display"
+    - "Publishing interface"
+    - "Notifications center"
+    - "System status monitoring"
+    - "Advanced settings pages"
+    - "Real-time updates or WebSockets"
+    - "Offline support"
+    - "Mobile native app"
+
+  notes:
+    - "Focus on core functionality and solid foundation"
+    - "Advanced features will be added in PHASE-D03"
+    - "Use TailwindCSS utility classes for rapid styling"
+    - "Headless UI provides accessible components out of the box"
+    - "React Query handles caching, refetching, and state management"
+    - "Keep API calls in separate modules for easy testing and reuse"
+    - "Consider adding a toast notification library (react-hot-toast)"
+    - "Use environment variables for API URL configuration"
+    - "Test in multiple browsers (Chrome, Firefox, Safari)"
+    - "Ensure all text is readable and UI elements are clickable"
