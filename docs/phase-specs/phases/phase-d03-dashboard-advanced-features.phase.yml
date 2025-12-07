@@ -1,0 +1,783 @@
+phase:
+  id: "PHASE-D03"
+  slug: "dashboard-advanced-features"
+  title: "Dashboard - Advanced Features & Analytics"
+
+  summary: |
+    Implement advanced dashboard features including drag-and-drop topic clustering, article
+    generation and editing, SEO scoring display, publishing interface, analytics dashboards
+    with charts, notifications center, and system status monitoring. This phase completes
+    the full feature set of the admin dashboard.
+
+  goal: |
+    A fully-featured admin dashboard with all advanced capabilities including visual clustering,
+    comprehensive analytics, SEO insights, publishing workflows, and system monitoring - making
+    the Auto-SEO platform completely accessible and manageable through the web interface.
+
+  from_master_spec:
+    sections:
+      - "master-spec-dashboard-api.txt - Section 3: Dashboard Requirements"
+      - "master-spec-dashboard-api.txt - Section 3.3: Core Feature Pages (G-M)"
+      - "master-spec-dashboard-api.txt - Section 3.4: Technical Requirements"
+
+  scope:
+    included:
+      - "Drag-and-drop topic clustering interface with react-dnd"
+      - "Content plan creation with cluster assignment"
+      - "Article generation UI with job status tracking"
+      - "Article editing interface with rich text or markdown editor"
+      - "Article preview functionality"
+      - "SEO scoring display with breakdown and recommendations"
+      - "Publishing interface for WordPress"
+      - "Analytics dashboard with performance charts (Recharts)"
+      - "Article-level analytics with metrics visualization"
+      - "Notifications center with read/unread status"
+      - "System status page showing service health"
+      - "Settings pages: Profile, API keys, preferences"
+      - "Enhanced UI/UX: Better visual design, animations, tooltips"
+      - "Additional integration tests for advanced features"
+    excluded:
+      - "Real-time updates via WebSockets"
+      - "Advanced analytics (predictive models, AI insights)"
+      - "Collaboration features (comments, mentions)"
+      - "Version control for articles"
+      - "A/B testing interface"
+      - "Docker deployment (separate phase)"
+
+  dependencies:
+    - "PHASE-D02"
+
+  inputs:
+    - name: "Core Dashboard"
+      type: "codebase"
+      location: "frontend/dashboard/"
+      description: "Core dashboard features from PHASE-D02"
+    - name: "API Gateway"
+      type: "api"
+      location: "services/api-gateway/"
+      description: "REST API with all endpoints"
+    - name: "Master Spec Addendum"
+      type: "documentation"
+      location: "docs/phase-specs/master-spec-dashboard-api.txt"
+      description: "Advanced feature requirements"
+
+  outputs:
+    - name: "Advanced Dashboard Features"
+      type: "code"
+      description: "Clustering, analytics, publishing, monitoring UIs"
+      location_hint: "frontend/dashboard/src/"
+    - name: "Analytics Components"
+      type: "code"
+      description: "Charts and data visualization components"
+      location_hint: "frontend/dashboard/src/components/analytics/"
+    - name: "Enhanced Tests"
+      type: "tests"
+      description: "Tests for advanced features"
+      location_hint: "frontend/dashboard/src/**/*.test.tsx"
+    - name: "Updated Documentation"
+      type: "documentation"
+      description: "Feature documentation and user guide"
+      location_hint: "frontend/dashboard/README.md"
+
+  implementation_prompt: |
+    You are a senior frontend engineer implementing **PHASE-D03: Dashboard - Advanced Features & Analytics** for the Auto-SEO platform.
+
+    ## CONTEXT
+
+    The core dashboard is now functional (from PHASE-D02) with authentication,
+    layout, and basic CRUD operations. Your task is to implement the advanced
+    features that make the Auto-SEO platform powerful: visual clustering,
+    content generation, SEO insights, analytics, and system monitoring.
+
+    **Current State:**
+    - Core dashboard working (auth, layout, basic CRUD)
+    - API Gateway provides all necessary endpoints
+    - Basic components and hooks exist
+
+    **Target State:**
+    - Drag-and-drop clustering interface
+    - Full article lifecycle (generate, edit, score, publish)
+    - Rich analytics dashboards
+    - System monitoring and notifications
+    - Complete feature parity with requirements
+
+    ## FEATURES TO IMPLEMENT
+
+    ### 1. Drag-and-Drop Topic Clustering
+
+    **Clustering Board:**
+    ```typescript
+    // pages/ClusteringPage.tsx
+    import { DndProvider } from 'react-dnd';
+    import { HTML5Backend } from 'react-dnd-html5-backend';
+    import { ClusteringBoard } from '../components/clustering/ClusteringBoard';
+
+    export function ClusteringPage() {
+      return (
+        <DndProvider backend={HTML5Backend}>
+          <div className="p-6">
+            <h1 className="text-3xl font-bold mb-6">Topic Clustering</h1>
+            <ClusteringBoard />
+          </div>
+        </DndProvider>
+      );
+    }
+    ```
+
+    **Clustering Board Component:**
+    ```typescript
+    // components/clustering/ClusteringBoard.tsx
+    import { useState } from 'react';
+    import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+    import { KeywordPool } from './KeywordPool';
+    import { ClusterArea } from './ClusterArea';
+    import * as clustersAPI from '../../api/clusters';
+    import * as keywordsAPI from '../../api/keywords';
+
+    export function ClusteringBoard() {
+      const queryClient = useQueryClient();
+      const { data: clusters } = useQuery({
+        queryKey: ['clusters'],
+        queryFn: clustersAPI.getAll,
+      });
+
+      const { data: keywords } = useQuery({
+        queryKey: ['unclustered-keywords'],
+        queryFn: keywordsAPI.getUnclustered,
+      });
+
+      const addKeywordToCluster = useMutation({
+        mutationFn: ({ clusterId, keywordId }: { clusterId: string; keywordId: string }) =>
+          clustersAPI.addKeyword(clusterId, keywordId),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['clusters'] });
+          queryClient.invalidateQueries({ queryKey: ['unclustered-keywords'] });
+        },
+      });
+
+      const handleDrop = (keywordId: string, clusterId: string) => {
+        addKeywordToCluster.mutate({ clusterId, keywordId });
+      };
+
+      return (
+        <div className="flex gap-6">
+          <KeywordPool keywords={keywords || []} />
+          <ClusterArea
+            clusters={clusters || []}
+            onDrop={handleDrop}
+          />
+        </div>
+      );
+    }
+    ```
+
+    **Draggable Keyword:**
+    ```typescript
+    // components/clustering/DraggableKeyword.tsx
+    import { useDrag } from 'react-dnd';
+
+    export function DraggableKeyword({ keyword }: { keyword: any }) {
+      const [{ isDragging }, drag] = useDrag({
+        type: 'keyword',
+        item: { id: keyword.id, text: keyword.text },
+        collect: (monitor) => ({
+          isDragging: monitor.isDragging(),
+        }),
+      });
+
+      return (
+        <div
+          ref={drag}
+          className={`p-2 bg-white border rounded cursor-move ${
+            isDragging ? 'opacity-50' : ''
+          }`}
+        >
+          {keyword.text}
+        </div>
+      );
+    }
+    ```
+
+    **Droppable Cluster:**
+    ```typescript
+    // components/clustering/DroppableCluster.tsx
+    import { useDrop } from 'react-dnd';
+
+    export function DroppableCluster({
+      cluster,
+      onDrop
+    }: {
+      cluster: any;
+      onDrop: (keywordId: string, clusterId: string) => void;
+    }) {
+      const [{ isOver }, drop] = useDrop({
+        accept: 'keyword',
+        drop: (item: { id: string }) => {
+          onDrop(item.id, cluster.id);
+        },
+        collect: (monitor) => ({
+          isOver: monitor.isOver(),
+        }),
+      });
+
+      return (
+        <div
+          ref={drop}
+          className={`min-h-[200px] p-4 border-2 border-dashed rounded ${
+            isOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+          }`}
+        >
+          <h3 className="font-bold mb-2">{cluster.name}</h3>
+          <div className="space-y-2">
+            {cluster.keywords?.map((kw: any) => (
+              <div key={kw.id} className="p-2 bg-gray-100 rounded">
+                {kw.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    ```
+
+    ### 2. Article Generation & Editing
+
+    **Article Generation Form:**
+    ```typescript
+    // components/articles/ArticleGenerationForm.tsx
+    import { useState } from 'react';
+    import { useMutation, useQueryClient } from '@tanstack/react-query';
+    import * as articlesAPI from '../../api/articles';
+
+    export function ArticleGenerationForm({ contentPlanId }: { contentPlanId: string }) {
+      const queryClient = useQueryClient();
+      const [settings, setSettings] = useState({
+        model: 'gpt-4o',
+        tone: 'professional',
+        length: 'medium',
+      });
+
+      const generateMutation = useMutation({
+        mutationFn: articlesAPI.generate,
+        onSuccess: (data) => {
+          queryClient.invalidateQueries({ queryKey: ['articles'] });
+          // Poll job status
+          pollJobStatus(data.jobId);
+        },
+      });
+
+      const handleGenerate = () => {
+        generateMutation.mutate({
+          contentPlanId,
+          ...settings,
+        });
+      };
+
+      return (
+        <div className="space-y-4">
+          <select
+            value={settings.model}
+            onChange={(e) => setSettings({ ...settings, model: e.target.value })}
+          >
+            <option value="gpt-4o">GPT-4o (High Quality)</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Fast)</option>
+          </select>
+
+          <select
+            value={settings.tone}
+            onChange={(e) => setSettings({ ...settings, tone: e.target.value })}
+          >
+            <option value="professional">Professional</option>
+            <option value="casual">Casual</option>
+            <option value="technical">Technical</option>
+          </select>
+
+          <button
+            onClick={handleGenerate}
+            disabled={generateMutation.isPending}
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            {generateMutation.isPending ? 'Generating...' : 'Generate Article'}
+          </button>
+        </div>
+      );
+    }
+    ```
+
+    **Job Status Tracker:**
+    ```typescript
+    // components/articles/JobStatusTracker.tsx
+    import { useQuery } from '@tanstack/react-query';
+    import * as articlesAPI from '../../api/articles';
+
+    export function JobStatusTracker({ jobId }: { jobId: string }) {
+      const { data: job } = useQuery({
+        queryKey: ['generation-job', jobId],
+        queryFn: () => articlesAPI.getJobStatus(jobId),
+        refetchInterval: (data) =>
+          data?.status === 'completed' || data?.status === 'failed' ? false : 2000,
+      });
+
+      return (
+        <div className="p-4 bg-gray-100 rounded">
+          <div className="flex items-center gap-2">
+            <span>Status: {job?.status}</span>
+            {job?.progress && <span>{job.progress}%</span>}
+          </div>
+          {job?.status === 'processing' && (
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full"
+                style={{ width: `${job.progress}%` }}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+
+    **Article Editor:**
+    ```typescript
+    // components/articles/ArticleEditor.tsx
+    import { useState } from 'react';
+    import { useMutation, useQueryClient } from '@tanstack/react-query';
+    import * as articlesAPI from '../../api/articles';
+
+    export function ArticleEditor({ article }: { article: any }) {
+      const [content, setContent] = useState(article.content);
+      const queryClient = useQueryClient();
+
+      const updateMutation = useMutation({
+        mutationFn: (data: any) => articlesAPI.update(article.id, data),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['articles', article.id] });
+        },
+      });
+
+      const handleSave = () => {
+        updateMutation.mutate({ content });
+      };
+
+      return (
+        <div className="space-y-4">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="w-full h-96 p-4 border rounded font-mono"
+          />
+          <button
+            onClick={handleSave}
+            disabled={updateMutation.isPending}
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      );
+    }
+    ```
+
+    ### 3. SEO Scoring Display
+
+    **SEO Score Card:**
+    ```typescript
+    // components/seo/SEOScoreCard.tsx
+    import { useQuery } from '@tanstack/react-query';
+    import * as seoAPI from '../../api/seo';
+    import { CircularProgress } from './CircularProgress';
+
+    export function SEOScoreCard({ articleId }: { articleId: string }) {
+      const { data: score } = useQuery({
+        queryKey: ['seo-score', articleId],
+        queryFn: () => seoAPI.getScore(articleId),
+      });
+
+      if (!score) return <div>Loading score...</div>;
+
+      return (
+        <div className="p-6 bg-white rounded-lg shadow">
+          <h3 className="text-xl font-bold mb-4">SEO Score</h3>
+          <CircularProgress value={score.total} max={100} />
+
+          <div className="mt-6 space-y-3">
+            <ScoreItem label="Title" score={score.breakdown.title} />
+            <ScoreItem label="Meta Description" score={score.breakdown.meta} />
+            <ScoreItem label="Headings" score={score.breakdown.headings} />
+            <ScoreItem label="Keyword Usage" score={score.breakdown.keywords} />
+            <ScoreItem label="Content Quality" score={score.breakdown.quality} />
+          </div>
+
+          {score.recommendations && (
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2">Recommendations:</h4>
+              <ul className="list-disc list-inside space-y-1">
+                {score.recommendations.map((rec: string, i: number) => (
+                  <li key={i} className="text-sm text-gray-700">{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+
+    ### 4. Publishing Interface
+
+    **Publish Button:**
+    ```typescript
+    // components/publishing/PublishButton.tsx
+    import { useMutation, useQueryClient } from '@tanstack/react-query';
+    import * as publishingAPI from '../../api/publishing';
+
+    export function PublishButton({ articleId }: { articleId: string }) {
+      const queryClient = useQueryClient();
+
+      const publishMutation = useMutation({
+        mutationFn: () => publishingAPI.publish(articleId),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['articles', articleId] });
+          queryClient.invalidateQueries({ queryKey: ['published-posts'] });
+        },
+      });
+
+      return (
+        <button
+          onClick={() => publishMutation.mutate()}
+          disabled={publishMutation.isPending}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          {publishMutation.isPending ? 'Publishing...' : 'Publish to WordPress'}
+        </button>
+      );
+    }
+    ```
+
+    **Published Posts List:**
+    ```typescript
+    // components/publishing/PublishedPostsList.tsx
+    import { useQuery } from '@tanstack/react-query';
+    import * as publishingAPI from '../../api/publishing';
+
+    export function PublishedPostsList() {
+      const { data: posts } = useQuery({
+        queryKey: ['published-posts'],
+        queryFn: publishingAPI.getAll,
+      });
+
+      return (
+        <div className="space-y-4">
+          {posts?.map((post: any) => (
+            <div key={post.id} className="p-4 bg-white rounded shadow">
+              <h3 className="font-bold">{post.title}</h3>
+              <p className="text-sm text-gray-600">{post.url}</p>
+              <p className="text-xs text-gray-500">
+                Published: {new Date(post.publishedAt).toLocaleDateString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    ```
+
+    ### 5. Analytics Dashboard
+
+    **Performance Chart:**
+    ```typescript
+    // components/analytics/PerformanceChart.tsx
+    import { useQuery } from '@tanstack/react-query';
+    import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+    import * as analyticsAPI from '../../api/analytics';
+
+    export function PerformanceChart({ articleId }: { articleId: string }) {
+      const { data } = useQuery({
+        queryKey: ['analytics', 'article', articleId],
+        queryFn: () => analyticsAPI.getArticlePerformance(articleId),
+      });
+
+      if (!data) return <div>Loading...</div>;
+
+      return (
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={data.timeseries}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis yAxisId="left" />
+            <YAxis yAxisId="right" orientation="right" />
+            <Tooltip />
+            <Legend />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="position"
+              stroke="#8884d8"
+              name="Position"
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="clicks"
+              stroke="#82ca9d"
+              name="Clicks"
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="impressions"
+              stroke="#ffc658"
+              name="Impressions"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      );
+    }
+    ```
+
+    **Analytics Overview:**
+    ```typescript
+    // pages/AnalyticsPage.tsx
+    import { useState } from 'react';
+    import { useQuery } from '@tanstack/react-query';
+    import * as analyticsAPI from '../api/analytics';
+    import { SummaryCards } from '../components/analytics/SummaryCards';
+    import { PerformanceChart } from '../components/analytics/PerformanceChart';
+
+    export function AnalyticsPage() {
+      const [dateRange, setDateRange] = useState('30d');
+
+      const { data: overview } = useQuery({
+        queryKey: ['analytics', 'overview', dateRange],
+        queryFn: () => analyticsAPI.getOverview(dateRange),
+      });
+
+      return (
+        <div className="p-6 space-y-6">
+          <h1 className="text-3xl font-bold">Analytics</h1>
+
+          <SummaryCards data={overview?.summary} />
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4">Traffic Overview</h2>
+            <PerformanceChart data={overview?.traffic} />
+          </div>
+        </div>
+      );
+    }
+    ```
+
+    ### 6. Notifications Center
+
+    **Notifications Bell:**
+    ```typescript
+    // components/layout/NotificationsBell.tsx
+    import { useState } from 'react';
+    import { useQuery } from '@tanstack/react-query';
+    import { BellIcon } from '@heroicons/react/24/outline';
+    import * as notificationsAPI from '../../api/notifications';
+
+    export function NotificationsBell() {
+      const [isOpen, setIsOpen] = useState(false);
+
+      const { data: notifications } = useQuery({
+        queryKey: ['notifications'],
+        queryFn: notificationsAPI.getAll,
+      });
+
+      const unreadCount = notifications?.filter((n: any) => !n.read).length || 0;
+
+      return (
+        <div className="relative">
+          <button onClick={() => setIsOpen(!isOpen)} className="relative">
+            <BellIcon className="h-6 w-6" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {isOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg">
+              <NotificationsList notifications={notifications} />
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+
+    ### 7. System Status Page
+
+    **Service Health:**
+    ```typescript
+    // pages/SystemStatusPage.tsx
+    import { useQuery } from '@tanstack/react-query';
+    import * as systemAPI from '../api/system';
+
+    export function SystemStatusPage() {
+      const { data: status } = useQuery({
+        queryKey: ['system', 'status'],
+        queryFn: systemAPI.getStatus,
+        refetchInterval: 30000, // Refresh every 30 seconds
+      });
+
+      return (
+        <div className="p-6 space-y-6">
+          <h1 className="text-3xl font-bold">System Status</h1>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {status?.services.map((service: any) => (
+              <ServiceCard key={service.name} service={service} />
+            ))}
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4">Queue Depths</h2>
+            <QueueMetrics queues={status?.queues} />
+          </div>
+        </div>
+      );
+    }
+    ```
+
+    ### 8. Settings Page
+
+    **User Profile:**
+    ```typescript
+    // pages/settings/ProfileSettings.tsx
+    import { useState } from 'react';
+    import { useMutation, useQueryClient } from '@tanstack/react-query';
+    import { useAuth } from '../../hooks/useAuth';
+    import * as authAPI from '../../api/auth';
+
+    export function ProfileSettings() {
+      const { user } = useAuth();
+      const [formData, setFormData] = useState({
+        name: user?.name || '',
+        email: user?.email || '',
+      });
+
+      const updateMutation = useMutation({
+        mutationFn: authAPI.updateProfile,
+        onSuccess: () => {
+          // Refresh user data
+        },
+      });
+
+      // ... form implementation
+    }
+    ```
+
+    **API Keys Management:**
+    ```typescript
+    // pages/settings/APIKeysSettings.tsx
+    import { useQuery, useMutation } from '@tanstack/react-query';
+    import * as apiKeysAPI from '../../api/apiKeys';
+
+    export function APIKeysSettings() {
+      const { data: apiKeys } = useQuery({
+        queryKey: ['api-keys'],
+        queryFn: apiKeysAPI.getAll,
+      });
+
+      // ... CRUD for API keys (OpenAI, Google, Ahrefs, etc.)
+    }
+    ```
+
+    ## DELIVERABLES
+
+    1. Drag-and-drop clustering interface
+    2. Article generation and editing features
+    3. SEO scoring display with recommendations
+    4. Publishing interface
+    5. Analytics dashboards with charts
+    6. Notifications center
+    7. System status monitoring
+    8. Settings pages
+    9. Enhanced tests for all new features
+    10. Updated documentation
+
+    ## ACCEPTANCE CRITERIA
+
+    - [ ] Drag-and-drop clustering works smoothly
+    - [ ] Users can create clusters and add keywords
+    - [ ] Article generation triggers jobs and polls status
+    - [ ] Article editor allows content editing
+    - [ ] SEO score displays with breakdown and recommendations
+    - [ ] Publishing to WordPress works
+    - [ ] Analytics charts render with real data
+    - [ ] Performance metrics visualized correctly
+    - [ ] Notifications display with unread count
+    - [ ] System status shows all services health
+    - [ ] User can update profile
+    - [ ] User can manage API keys
+    - [ ] All charts responsive and accessible
+    - [ ] No console errors
+    - [ ] Tests passing with >70% coverage
+    - [ ] UI polished and professional
+
+    ## TIPS
+
+    - Use react-dnd for smooth drag-and-drop
+    - Recharts for powerful, responsive charts
+    - Poll job status until completion
+    - Cache analytics data to reduce API calls
+    - Make notifications real-time if possible
+    - Show loading skeletons for better UX
+    - Add tooltips for complex features
+    - Make everything keyboard accessible
+
+    Build amazing advanced features!
+
+  acceptance_criteria:
+    - "Drag-and-drop clustering interface functional and smooth"
+    - "Users can create topic clusters and drag keywords into them"
+    - "Keywords can be moved between clusters"
+    - "Article generation form works with all options"
+    - "Job status tracked and displayed with progress"
+    - "Article editor allows content modification"
+    - "Article preview displays correctly"
+    - "SEO score displays with circular progress indicator"
+    - "SEO score breakdown shows all categories"
+    - "SEO recommendations listed clearly"
+    - "Publish button triggers WordPress publishing"
+    - "Published posts listed with URLs and dates"
+    - "Analytics overview shows summary metrics"
+    - "Performance charts render for articles"
+    - "Traffic trends visualized over time"
+    - "Date range filter works for analytics"
+    - "Notifications display with unread count badge"
+    - "Notifications can be marked as read"
+    - "System status page shows all services"
+    - "Service health indicators accurate"
+    - "Queue metrics displayed"
+    - "User can update profile information"
+    - "User can manage API keys (add, edit, delete)"
+    - "All charts responsive on different screen sizes"
+    - "No console errors or warnings"
+    - "TypeScript compilation successful"
+    - "Tests pass with >70% coverage"
+    - "UI is polished and professional"
+
+  non_goals:
+    - "Real-time collaboration"
+    - "Version control for articles"
+    - "A/B testing interface"
+    - "Advanced predictive analytics"
+    - "WebSocket-based live updates"
+    - "Mobile native app"
+    - "Offline support"
+
+  notes:
+    - "This phase completes all dashboard features"
+    - "Focus on UX and polish"
+    - "Make sure all interactions are smooth"
+    - "Add loading states and skeleton screens"
+    - "Use animations sparingly for better UX"
+    - "Test drag-and-drop on different browsers"
+    - "Ensure charts are accessible (keyboard navigation, screen readers)"
+    - "Consider adding a tour or onboarding for first-time users"
+    - "Make sure large datasets are paginated or virtualized"
+    - "Add export functionality for analytics data"
