@@ -67,7 +67,7 @@ async def get_diagnostics() -> Dict[str, Any]:
     """
     # Define all services
     services = [
-        ("API Gateway", "http://localhost:8080"),
+        ("API Gateway", settings.AUTH_SERVICE_URL.replace(":8081", ":8080")),  # Infer gateway from auth service
         ("Auth Service", settings.AUTH_SERVICE_URL),
         ("Notification Service", settings.NOTIFICATION_SERVICE_URL),
         ("Keyword Ingestion", settings.KEYWORD_INGESTION_URL),
